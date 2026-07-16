@@ -1,4 +1,4 @@
-import { createClient, createAccount, generatePrivateKey } from "genlayer-js";
+import { createClient, createAccount, generatePrivateKey, abi } from "genlayer-js";
 import { studionet } from "genlayer-js/chains";
 
 const FALLBACK_ADDRESS = "0x779dCA4ccb496456524ffCC12e95926245aaf89C";
@@ -43,3 +43,19 @@ export function resetLocalAccount(): void {
     /* ignore */
   }
 }
+
+export function toCalldataAddress(hexAddress: string): any {
+  const dummyBytes = new Uint8Array(21);
+  dummyBytes[0] = 24; // SPECIAL_ADDR
+  for (let i = 1; i <= 20; i++) dummyBytes[i] = 0;
+  const decoded = abi.calldata.decode(dummyBytes) as any;
+  const CalldataAddress = decoded.constructor;
+
+  const cleanHex = hexAddress.startsWith("0x") ? hexAddress.slice(2) : hexAddress;
+  const bytes = new Uint8Array(20);
+  for (let i = 0; i < 20; i++) {
+    bytes[i] = parseInt(cleanHex.slice(i * 2, i * 2 + 2), 16);
+  }
+  return new CalldataAddress(bytes);
+}
+

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
-import { client, CONTRACT_ADDRESS, getAccountAddress } from "@/lib/genlayer"
+import { client, CONTRACT_ADDRESS, getAccountAddress, toCalldataAddress } from "@/lib/genlayer"
 import { ConnectWalletButton } from "@/components/ConnectWalletButton"
 import { StatusBadge } from "@/components/StatusBadge"
 import { VerdictPanel } from "@/components/VerdictPanel"
@@ -56,7 +56,7 @@ export default function NDADetailPage() {
         const bal = await client.readContract({
           address: CONTRACT_ADDRESS,
           functionName: "get_withdrawable",
-          args: [userAddress]
+          args: [toCalldataAddress(userAddress)]
         }) as bigint;
         setWithdrawable(bal.toString());
       }
