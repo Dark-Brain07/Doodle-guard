@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
-import { client, CONTRACT_ADDRESS } from "@/lib/genlayer"
+import { client, CONTRACT_ADDRESS, getAccountAddress } from "@/lib/genlayer"
 import { ConnectWalletButton } from "@/components/ConnectWalletButton"
 import { StatusBadge } from "@/components/StatusBadge"
 import { VerdictPanel } from "@/components/VerdictPanel"
@@ -69,14 +69,8 @@ export default function NDADetailPage() {
 
   useEffect(() => {
     const init = async () => {
-      let userAddr = undefined;
-      if (typeof window !== "undefined" && (window as any).ethereum) {
-        const accounts = await (window as any).ethereum.request({ method: 'eth_accounts' });
-        if (accounts.length > 0) {
-          userAddr = accounts[0];
-          setAddress(userAddr);
-        }
-      }
+      const userAddr = typeof window !== "undefined" ? getAccountAddress() : undefined;
+      if (userAddr) setAddress(userAddr);
       await fetchNDA(userAddr);
     }
     init();
@@ -86,17 +80,17 @@ export default function NDADetailPage() {
     if (!nda || !address) return;
     setIsActivating(true);
     try {
-      await client.writeContract({
+      const hash = await client.writeContract({
         address: CONTRACT_ADDRESS,
         functionName: "activate_nda",
         args: [BigInt(nda.id)],
-        value: BigInt(nda.stake_a), // Party B matches Party A stake
-        account: address as any
+        value: BigInt(nda.stake_a),
       });
+      await client.waitForTransactionReceipt({ hash, status: "FINALIZED" as never });
       await fetchNDA(address);
     } catch (err) {
       console.error(err);
-      alert("Error activating NDA");
+      alert("Error activating NDA: " + (err instanceof Error ? err.message : String(err)));
     } finally {
       setIsActivating(false);
     }
@@ -106,17 +100,17 @@ export default function NDADetailPage() {
     if (!nda || !address) return;
     setIsExpiring(true);
     try {
-      await client.writeContract({
+      const hash = await client.writeContract({
         address: CONTRACT_ADDRESS,
         functionName: "expire_and_withdraw",
         args: [BigInt(nda.id)],
         value: BigInt(0),
-        account: address as any
       });
+      await client.waitForTransactionReceipt({ hash, status: "FINALIZED" as never });
       await fetchNDA(address);
     } catch (err) {
       console.error(err);
-      alert("Error expiring NDA");
+      alert("Error expiring NDA: " + (err instanceof Error ? err.message : String(err)));
     } finally {
       setIsExpiring(false);
     }
@@ -125,18 +119,18 @@ export default function NDADetailPage() {
   const handleWithdraw = async () => {
     if (!address) return;
     try {
-      await client.writeContract({
+      const hash = await client.writeContract({
         address: CONTRACT_ADDRESS,
         functionName: "withdraw",
         args: [],
         value: BigInt(0),
-        account: address as any
       });
+      await client.waitForTransactionReceipt({ hash, status: "FINALIZED" as never });
       alert("Withdrawn successfully!");
       await fetchNDA(address);
     } catch (err) {
       console.error(err);
-      alert("Error withdrawing");
+      alert("Error withdrawing: " + (err instanceof Error ? err.message : String(err)));
     }
   }
 

@@ -1,0 +1,15 @@
+{
+  "studionet": {
+    "NDASentinel": "0x779dCA4ccb496456524ffCC12e95926245aaf89C",
+    "deployed_at": "2026-07-16",
+    "source": "contracts/nda_sentinel.py",
+    "class": "NDASentinel",
+    "rpc": "https://studio.genlayer.com/api",
+    "notes": "2026-07-16 resubmission deploy addressing reviewer feedback 'Error creating NDA'. RPC verified: get_stats returns zeroed initial state."
+  },
+  "studionet_previous": {
+    "NDASentinel": "0x42969f64860D42194916a2E4e3A80509617FF2e0",
+    "deployed_at": "2026-06-18",
+    "notes": "Wiped by studionet reset. Contract no longer exists on-chain — kept for reference only."
+  }
+}

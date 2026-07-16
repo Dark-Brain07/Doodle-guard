@@ -4,11 +4,11 @@
 
 | Network    | Address                                    | Explorer                                     |
 |------------|--------------------------------------------|----------------------------------------------|
-| studionet  | `0x42969f64860D42194916a2E4e3A80509617FF2e0`                  | [Open in Studio](https://studio.genlayer.com/?import-contract=0x42969f64860D42194916a2E4e3A80509617FF2e0) |
+| studionet  | `0x779dCA4ccb496456524ffCC12e95926245aaf89C`                  | [Open in Studio](https://studio.genlayer.com/?import-contract=0x779dCA4ccb496456524ffCC12e95926245aaf89C) |
 
 **Live App**: [https://nda-sentinel.vercel.app](https://nda-sentinel.vercel.app)  
 **Class Name**: `NDASentinel`  
-**Latest Deployment**: 2026-06-18  
+**Latest Deployment**: 2026-07-16 (resubmission — fixes "Error creating NDA" bug reported by reviewer)  
 
 ## Overview
 Traditional NDAs are unenforceable in practice due to high costs ($200k–$2M in fees), long durations (18–36 months), and difficulties in cross-jurisdictional discovery.

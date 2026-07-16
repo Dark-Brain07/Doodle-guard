@@ -43,27 +43,28 @@ export function ReportLeakForm() {
     setIsSubmitting(true);
     
     try {
-      const accounts = await (window as any).ethereum.request({ method: 'eth_requestAccounts' });
-      const sender = accounts[0];
-
       // 1 GEN reporting fee
-      const reportFee = BigInt(1e18);
+      const reportFee = 10n ** 18n;
 
-      await client.writeContract({
+      const hash = await client.writeContract({
         address: CONTRACT_ADDRESS,
         functionName: "report_leak",
         args: [
           BigInt(ndaId as string),
           suspectUrl,
           JSON.stringify(selectedKeywords),
-          decryptedVault.salt
+          decryptedVault.salt,
         ],
         value: reportFee,
-        account: sender as any
+      });
+
+      await client.waitForTransactionReceipt({
+        hash,
+        status: "FINALIZED" as never,
       });
 
       router.push(`/ndas/${ndaId}`);
-      
+
     } catch (err) {
       console.error(err);
       alert(parseContractError(err));

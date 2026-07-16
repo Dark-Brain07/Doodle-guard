@@ -6,6 +6,7 @@ import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
 import { client, CONTRACT_ADDRESS } from "@/lib/genlayer"
+import { parseGenAmount } from "@/lib/amount"
 import { generateSalt, hashKeyword } from "@/lib/crypto"
 import { downloadVaultFile } from "@/lib/vault"
 import { parseContractError } from "@/lib/utils"
@@ -85,15 +86,13 @@ export function NDAWizard() {
     try {
       const hashes = keywordsList.map(kw => hashKeyword(kw, salt))
       const hashesJson = JSON.stringify(hashes)
-      
-      const expiryTimestamp = Math.floor(new Date(values.expiryDate).getTime() / 1000)
-      
-      const weiAmount = BigInt(parseFloat(values.stakeAmount) * 1e18)
 
-      const accounts = await (window as any).ethereum.request({ method: 'eth_requestAccounts' });
-      const sender = accounts[0];
-      
-      const result = await client.writeContract({
+      const expiryTimestamp = BigInt(
+        Math.floor(new Date(values.expiryDate).getTime() / 1000)
+      )
+      const weiAmount = parseGenAmount(values.stakeAmount)
+
+      const hash = await client.writeContract({
         address: CONTRACT_ADDRESS,
         functionName: "create_nda",
         args: [
@@ -101,14 +100,18 @@ export function NDAWizard() {
           values.scope,
           values.contextDescription,
           expiryTimestamp,
-          hashesJson
+          hashesJson,
         ],
         value: weiAmount,
-        account: sender as any
+      })
+
+      await client.waitForTransactionReceipt({
+        hash,
+        status: "FINALIZED" as never,
       })
 
       router.push("/ndas")
-      
+
     } catch (err) {
       console.error(err)
       alert(parseContractError(err))

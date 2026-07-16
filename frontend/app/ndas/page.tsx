@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { client, CONTRACT_ADDRESS } from "@/lib/genlayer"
+import { client, CONTRACT_ADDRESS, getAccountAddress } from "@/lib/genlayer"
 import { NDACard } from "@/components/NDACard"
 import { ConnectWalletButton } from "@/components/ConnectWalletButton"
 import { Button } from "@/components/ui/button"
@@ -15,28 +15,26 @@ export default function NDAsDashboard() {
 
   useEffect(() => {
     const fetchNDAs = async () => {
-      if (typeof window !== "undefined" && (window as any).ethereum) {
-        const accounts = await (window as any).ethereum.request({ method: 'eth_accounts' });
-        if (accounts.length > 0) {
-          const userAddress = accounts[0];
-          setAddress(userAddress);
-          
-          try {
-            const result = await client.readContract({
-              address: CONTRACT_ADDRESS,
-              functionName: "get_user_ndas",
-              args: [userAddress]
-            }) as string;
-            
-            if (result) {
-              setNdas(JSON.parse(result));
-            }
-          } catch (err) {
-            console.error("Failed to fetch NDAs", err)
-          }
-        }
+      if (typeof window === "undefined") {
+        setLoading(false)
+        return
       }
-      setLoading(false)
+      const userAddress = getAccountAddress()
+      setAddress(userAddress)
+      try {
+        const result = await client.readContract({
+          address: CONTRACT_ADDRESS,
+          functionName: "get_user_ndas",
+          args: [userAddress],
+        }) as string
+        if (result) {
+          setNdas(JSON.parse(result))
+        }
+      } catch (err) {
+        console.error("Failed to fetch NDAs", err)
+      } finally {
+        setLoading(false)
+      }
     }
 
     fetchNDAs()
