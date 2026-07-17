@@ -1,34 +1,47 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import { useParams, useRouter } from "next/navigation"
+import { useCallback, useEffect, useState } from "react"
+import { useParams } from "next/navigation"
 import { client, CONTRACT_ADDRESS, getAccountAddress, toCalldataAddress } from "@/lib/genlayer"
 import { ConnectWalletButton } from "@/components/ConnectWalletButton"
 import { StatusBadge } from "@/components/StatusBadge"
 import { VerdictPanel } from "@/components/VerdictPanel"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
+import { Textarea } from "@/components/ui/textarea"
 import { NDADetail, Verdict } from "@/lib/types"
+import { formatGenAmount } from "@/lib/amount"
+import { parseContractError } from "@/lib/utils"
 import { format } from "date-fns"
 import Link from "next/link"
 
 export default function NDADetailPage() {
   const { ndaId } = useParams()
-  const router = useRouter()
   const [nda, setNda] = useState<NDADetail | null>(null)
   const [loading, setLoading] = useState(true)
   const [address, setAddress] = useState<string | null>(null)
   const [isActivating, setIsActivating] = useState(false)
   const [isExpiring, setIsExpiring] = useState(false)
+  const [isAppealing, setIsAppealing] = useState(false)
+  const [isClaimingReward, setIsClaimingReward] = useState(false)
+  const [counterEvidence, setCounterEvidence] = useState("")
   const [withdrawable, setWithdrawable] = useState<string>("0")
+  const [currentTimeMs, setCurrentTimeMs] = useState<number | null>(null)
 
-  const fetchNDA = async (userAddress?: string) => {
+  const fetchNDA = useCallback(async (userAddress?: string) => {
     try {
       const result = await client.readContract({
         address: CONTRACT_ADDRESS,
         functionName: "get_nda",
         args: [BigInt(ndaId as string)]
-      }) as any;
+      }) as {
+        id: bigint; party_a: string; party_b: string; scope: string;
+        context_description: string; status: NDADetail["status"];
+        stake_a: bigint; stake_b: bigint; expiry_timestamp: bigint;
+        created_at: bigint; activated_at: bigint; keyword_hash_count: bigint;
+        suspect_url: string; verdict_json: string; violator: string;
+        slashed_amount: bigint; reporter: string; appeal_deadline: bigint;
+      };
       
       if (result) {
         setNda({
@@ -48,7 +61,8 @@ export default function NDADetailPage() {
           verdict_json: result.verdict_json,
           violator: result.violator,
           slashed_amount: result.slashed_amount.toString(),
-          reporter: result.reporter
+          reporter: result.reporter,
+          appeal_deadline: result.appeal_deadline.toString()
         });
       }
 
@@ -65,7 +79,7 @@ export default function NDADetailPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [ndaId])
 
   useEffect(() => {
     const init = async () => {
@@ -74,7 +88,17 @@ export default function NDADetailPage() {
       await fetchNDA(userAddr);
     }
     init();
-  }, [ndaId])
+  }, [fetchNDA])
+
+  useEffect(() => {
+    const refreshClock = () => setCurrentTimeMs(Date.now())
+    const initialTimer = window.setTimeout(refreshClock, 0)
+    const interval = window.setInterval(refreshClock, 30_000)
+    return () => {
+      window.clearTimeout(initialTimer)
+      window.clearInterval(interval)
+    }
+  }, [])
 
   const handleActivate = async () => {
     if (!nda || !address) return;
@@ -134,6 +158,48 @@ export default function NDADetailPage() {
     }
   }
 
+  const handleAppeal = async () => {
+    if (!nda || !address || !counterEvidence.trim()) return;
+    setIsAppealing(true);
+    try {
+      const appealFee = BigInt(nda.slashed_amount) / 10n;
+      const hash = await client.writeContract({
+        address: CONTRACT_ADDRESS,
+        functionName: "appeal",
+        args: [BigInt(nda.id), counterEvidence.trim()],
+        value: appealFee,
+      });
+      await client.waitForTransactionReceipt({ hash, status: "FINALIZED" as never });
+      setCounterEvidence("");
+      await fetchNDA(address);
+    } catch (err) {
+      console.error(err);
+      alert(parseContractError(err));
+    } finally {
+      setIsAppealing(false);
+    }
+  }
+
+  const handleClaimReward = async () => {
+    if (!nda || !address) return;
+    setIsClaimingReward(true);
+    try {
+      const hash = await client.writeContract({
+        address: CONTRACT_ADDRESS,
+        functionName: "claim_reporter_reward",
+        args: [BigInt(nda.id)],
+        value: 0n,
+      });
+      await client.waitForTransactionReceipt({ hash, status: "FINALIZED" as never });
+      await fetchNDA(address);
+    } catch (err) {
+      console.error(err);
+      alert(parseContractError(err));
+    } finally {
+      setIsClaimingReward(false);
+    }
+  }
+
   if (loading) {
     return <div className="container mx-auto px-4 py-8">Loading NDA details...</div>
   }
@@ -146,7 +212,18 @@ export default function NDADetailPage() {
   const isPartyB = address?.toLowerCase() === nda.party_b.toLowerCase();
   const expiryDate = new Date(parseInt(nda.expiry_timestamp) * 1000);
   const isExpired = expiryDate < new Date();
-  const parsedVerdict: Verdict | null = nda.verdict_json ? JSON.parse(nda.verdict_json) : null;
+  let parsedVerdict: Verdict | null = null;
+  try {
+    parsedVerdict = nda.verdict_json ? JSON.parse(nda.verdict_json) : null;
+  } catch {
+    parsedVerdict = null;
+  }
+  const zeroAddress = "0x0000000000000000000000000000000000000000";
+  const isViolator = !!address && nda.violator.toLowerCase() === address.toLowerCase();
+  const isReporter = !!address && nda.reporter.toLowerCase() === address.toLowerCase();
+  const appealDeadlineMs = Number(nda.appeal_deadline) * 1000;
+  const appealOpen = currentTimeMs !== null && nda.status === "leaked" && nda.violator.toLowerCase() !== zeroAddress && currentTimeMs < appealDeadlineMs;
+  const rewardClaimable = currentTimeMs !== null && nda.status === "leaked" && isReporter && appealDeadlineMs > 0 && currentTimeMs >= appealDeadlineMs;
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-4xl space-y-8">
@@ -168,7 +245,7 @@ export default function NDADetailPage() {
           <CardContent className="flex justify-between items-center p-6">
             <div>
               <h3 className="font-bold text-emerald-800 dark:text-emerald-400">Available to Withdraw</h3>
-              <p className="text-2xl font-mono">{parseFloat(withdrawable) / 1e18} GEN</p>
+              <p className="text-2xl font-mono">{formatGenAmount(withdrawable)} GEN</p>
             </div>
             <Button onClick={handleWithdraw} className="bg-emerald-600 hover:bg-emerald-700">
               Withdraw
@@ -182,14 +259,14 @@ export default function NDADetailPage() {
           <CardContent className="p-6 space-y-2">
             <p className="text-sm font-semibold text-slate-500 uppercase">Party A (Creator)</p>
             <p className="font-mono text-sm break-all">{nda.party_a}</p>
-            <p className="text-sm">Stake: {parseFloat(nda.stake_a) / 1e18} GEN</p>
+            <p className="text-sm">Stake: {formatGenAmount(nda.stake_a)} GEN</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-6 space-y-2">
             <p className="text-sm font-semibold text-slate-500 uppercase">Party B (Counterparty)</p>
             <p className="font-mono text-sm break-all">{nda.party_b}</p>
-            <p className="text-sm">Stake: {parseFloat(nda.stake_b) / 1e18} GEN</p>
+            <p className="text-sm">Stake: {formatGenAmount(nda.stake_b)} GEN</p>
           </CardContent>
         </Card>
       </div>
@@ -221,11 +298,47 @@ export default function NDADetailPage() {
         <VerdictPanel verdict={parsedVerdict} />
       )}
 
+      {appealOpen && isViolator && (
+        <Card className="border-amber-300 bg-amber-50 dark:bg-amber-950/20">
+          <CardContent className="p-6 space-y-4">
+            <div>
+              <h3 className="font-bold text-amber-900 dark:text-amber-300">Appeal this verdict</h3>
+              <p className="text-sm text-amber-800 dark:text-amber-400">
+                Submit counter-evidence before {format(new Date(appealDeadlineMs), "PPp")} with a {formatGenAmount(BigInt(nda.slashed_amount) / 10n)} GEN appeal stake.
+              </p>
+            </div>
+            <Textarea
+              value={counterEvidence}
+              onChange={(event) => setCounterEvidence(event.target.value)}
+              maxLength={2000}
+              placeholder="Provide prior-publication or attribution evidence..."
+            />
+            <Button onClick={handleAppeal} disabled={isAppealing || !counterEvidence.trim()}>
+              {isAppealing ? "Submitting appeal..." : "Submit Appeal"}
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {rewardClaimable && (
+        <Card className="border-emerald-300 bg-emerald-50 dark:bg-emerald-950/20">
+          <CardContent className="p-6 flex items-center justify-between gap-4">
+            <div>
+              <h3 className="font-bold text-emerald-900 dark:text-emerald-300">Reporter reward finalized</h3>
+              <p className="text-sm text-emerald-800 dark:text-emerald-400">The appeal window is closed. Release the escrowed reward and compensation.</p>
+            </div>
+            <Button onClick={handleClaimReward} disabled={isClaimingReward} className="bg-emerald-600 hover:bg-emerald-700">
+              {isClaimingReward ? "Claiming..." : "Claim Reward"}
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
       {/* ACTION AREA */}
       <div className="pt-4 flex justify-center gap-4">
         {nda.status === "pending" && isPartyB && (
           <Button size="lg" onClick={handleActivate} disabled={isActivating}>
-            {isActivating ? "Activating..." : `Activate & Stake ${parseFloat(nda.stake_a) / 1e18} GEN`}
+            {isActivating ? "Activating..." : `Activate & Stake ${formatGenAmount(nda.stake_a)} GEN`}
           </Button>
         )}
         

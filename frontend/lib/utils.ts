@@ -5,8 +5,8 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-export function parseContractError(err: any): string {
-  const raw = err?.message || String(err);
+export function parseContractError(err: unknown): string {
+  const raw = err instanceof Error ? err.message : String(err);
   
   if (raw.includes("Contract Queues not found") || raw.includes("RevealingPhase not found")) {
     return "Consensus mismatch or network issue. Please try again in 30 seconds.";

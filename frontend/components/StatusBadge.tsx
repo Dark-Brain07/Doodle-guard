@@ -18,8 +18,9 @@ export function StatusBadge({ status }: { status: string }) {
       label = "Leaked"
       break
     case "expired":
+    case "cancelled":
       colorClass = "bg-slate-400 hover:bg-slate-500 text-white"
-      label = "Expired"
+      label = status === "expired" ? "Expired" : "Cancelled"
       break
     case "disputed":
     case "appeal_pending":

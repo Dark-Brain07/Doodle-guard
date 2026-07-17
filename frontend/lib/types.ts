@@ -3,7 +3,7 @@ export interface NDA {
     party_a: string;
     party_b: string;
     scope: string;
-    status: "pending" | "active" | "leaked" | "expired" | "disputed" | "appeal_pending";
+    status: "pending" | "active" | "leaked" | "expired" | "cancelled" | "disputed" | "appeal_pending";
     stake_a: string;
     stake_b: string;
     expiry_timestamp: string;
@@ -19,6 +19,7 @@ export interface NDADetail extends NDA {
     violator: string;
     slashed_amount: string;
     reporter: string;
+    appeal_deadline: string;
 }
 
 export interface Verdict {

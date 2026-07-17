@@ -1,7 +1,8 @@
 import { createClient, createAccount, generatePrivateKey, abi } from "genlayer-js";
 import { studionet } from "genlayer-js/chains";
+import type { CalldataEncodable } from "genlayer-js/types";
 
-const FALLBACK_ADDRESS = "0x779dCA4ccb496456524ffCC12e95926245aaf89C";
+const FALLBACK_ADDRESS = "0x10562A17a26D02A1591F49F3013D66e1bBCc6F09";
 const ACCOUNT_KEY = "nda-sentinel-account-pk";
 
 export const CONTRACT_ADDRESS = (
@@ -44,12 +45,12 @@ export function resetLocalAccount(): void {
   }
 }
 
-export function toCalldataAddress(hexAddress: string): any {
+export function toCalldataAddress(hexAddress: string): CalldataEncodable {
   const dummyBytes = new Uint8Array(21);
   dummyBytes[0] = 24; // SPECIAL_ADDR
   for (let i = 1; i <= 20; i++) dummyBytes[i] = 0;
-  const decoded = abi.calldata.decode(dummyBytes) as any;
-  const CalldataAddress = decoded.constructor;
+  const decoded = abi.calldata.decode(dummyBytes) as object;
+  const CalldataAddress = decoded.constructor as unknown as new (bytes: Uint8Array) => CalldataEncodable;
 
   const cleanHex = hexAddress.startsWith("0x") ? hexAddress.slice(2) : hexAddress;
   const bytes = new Uint8Array(20);
@@ -58,4 +59,3 @@ export function toCalldataAddress(hexAddress: string): any {
   }
   return new CalldataAddress(bytes);
 }
-

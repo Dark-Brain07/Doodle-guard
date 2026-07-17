@@ -44,7 +44,7 @@ export function VerdictPanel({ verdict }: { verdict: Verdict }) {
               Evidence Quote
             </p>
             <blockquote className="text-sm italic border-l-2 border-rose-300 pl-3 text-slate-700 dark:text-slate-300">
-              "{verdict.evidence_quote}"
+              &ldquo;{verdict.evidence_quote}&rdquo;
             </blockquote>
           </div>
         )}

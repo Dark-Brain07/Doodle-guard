@@ -5,8 +5,9 @@ import { wrapProviderWithSnapsBypass } from "@/lib/snapsBypass"
 
 export function SnapsBypassInitializer() {
   useEffect(() => {
-    if (typeof window !== "undefined" && (window as any).ethereum) {
-      (window as any).ethereum = wrapProviderWithSnapsBypass((window as any).ethereum);
+    const browserWindow = window as Window & { ethereum?: Parameters<typeof wrapProviderWithSnapsBypass>[0] };
+    if (browserWindow.ethereum) {
+      browserWindow.ethereum = wrapProviderWithSnapsBypass(browserWindow.ethereum);
     }
   }, [])
 

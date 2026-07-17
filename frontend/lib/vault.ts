@@ -17,7 +17,7 @@ export function decryptVault(encrypted: string, password: string): VaultData | n
     const decryptedData = bytes.toString(CryptoJS.enc.Utf8);
     if (!decryptedData) return null;
     return JSON.parse(decryptedData);
-  } catch (e) {
+  } catch {
     return null;
   }
 }

@@ -4,9 +4,17 @@ import { useEffect, useState } from "react"
 import { client, CONTRACT_ADDRESS } from "@/lib/genlayer"
 import { ConnectWalletButton } from "@/components/ConnectWalletButton"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { formatGenAmount } from "@/lib/amount"
+
+interface ProtocolStats {
+  total_ndas_created: string;
+  total_violations_confirmed: string;
+  total_value_slashed: string;
+  treasury: string;
+}
 
 export default function ViolationsLogPage() {
-  const [stats, setStats] = useState<any>(null)
+  const [stats, setStats] = useState<ProtocolStats | null>(null)
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -56,7 +64,7 @@ export default function ViolationsLogPage() {
           </CardHeader>
           <CardContent>
             <p className="text-3xl font-bold text-emerald-600">
-              {stats?.total_value_slashed ? parseFloat(stats.total_value_slashed) / 1e18 : "0"} GEN
+              {stats?.total_value_slashed ? formatGenAmount(stats.total_value_slashed) : "0"} GEN
             </p>
           </CardContent>
         </Card>

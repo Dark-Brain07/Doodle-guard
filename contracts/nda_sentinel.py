@@ -1,9 +1,10 @@
-# v0.2.16
+# v0.2.17
 # { "Depends": "py-genlayer:1jb45aa8ynh2a9c9xn3b7qqh8sm5q93hwfp7jqmwsfhh8jpz09h6" }
 from genlayer import *
 from dataclasses import dataclass
 import json
 import hashlib
+import datetime
 
 REPORT_FEE_WEI = 1_000_000_000_000_000_000          # 1 GEN
 APPEAL_FEE_BPS = 1000                                # 10% of slashed amount
@@ -70,6 +71,9 @@ class NDASentinel(gl.Contract):
     
     withdrawable: TreeMap[Address, u256]
     escrowed_reporter_reward: TreeMap[u256, u256]  # nda_id -> amount escrowed
+    escrowed_compensation: TreeMap[u256, u256]     # nda_id -> non-violator share
+    escrowed_treasury_fee: TreeMap[u256, u256]     # nda_id -> protocol share
+    appeal_submitted: TreeMap[u256, bool]           # replay protection per verdict
     
     next_nda_id: u256
     treasury: u256
@@ -97,6 +101,9 @@ class NDASentinel(gl.Contract):
                 return u256(int(dt.timestamp()))
             if isinstance(dt, (int, float)):
                 return u256(int(dt))
+            if isinstance(dt, str):
+                parsed = datetime.datetime.fromisoformat(dt.replace("Z", "+00:00"))
+                return u256(int(parsed.timestamp()))
         except Exception:
             pass
         return u256(0)
@@ -340,7 +347,7 @@ Fetched content:
 """
             res = gl.nondet.exec_prompt(prompt, response_format="json")
             try:
-                return json.loads(res)
+                return json.loads(res) if isinstance(res, str) else res
             except Exception:
                 return {
                     "verdict": "inconclusive",
@@ -385,7 +392,7 @@ Fetched content:
             resp_party_str = result_payload.get("responsible_party", "unknown")
             violator = nda.party_a if resp_party_str == "party_a" else (nda.party_b if resp_party_str == "party_b" else Address("0x0000000000000000000000000000000000000000"))
             
-            if violator != Address("0x0000000000000000000000000000000000000000"):
+            if violator != Address("0x0000000000000000000000000000000000000000") and violator != sender:
                 slash_pool = nda.stake_a if violator == nda.party_a else nda.stake_b
                 other_party = nda.party_b if violator == nda.party_a else nda.party_a
                 
@@ -394,12 +401,14 @@ Fetched content:
                     treasury_fee = (int(slash_pool) * 3) // 100
                     compensation = int(slash_pool) - reporter_reward - treasury_fee
                     
-                    # Escrow reporter reward
+                    # Keep the complete slash distribution in escrow until the
+                    # appeal is resolved or the deadline passes. Releasing any
+                    # share now would make an overturned verdict insolvent.
                     self.escrowed_reporter_reward[nda_id] = u256(reporter_reward)
+                    self.escrowed_compensation[nda_id] = u256(compensation)
+                    self.escrowed_treasury_fee[nda_id] = u256(treasury_fee)
+                    self.appeal_submitted[nda_id] = False
                     nda.appeal_deadline = self._now() + u256(APPEAL_WINDOW_SECONDS)
-                    
-                    self.treasury = u256(int(self.treasury) + treasury_fee)
-                    self.withdrawable[other_party] = u256(int(self.withdrawable.get(other_party, u256(0))) + compensation)
                     
                     nda.slashed_amount = slash_pool
                     self.total_value_slashed = u256(int(self.total_value_slashed) + int(slash_pool))
@@ -408,13 +417,23 @@ Fetched content:
                         nda.stake_a = u256(0)
                     else:
                         nda.stake_b = u256(0)
-            
-            nda.status = "leaked"
-            nda.suspect_url = suspect_url
-            nda.verdict_json = json.dumps(result_payload)
-            nda.violator = violator
-            nda.reporter = sender
-            self.total_violations_confirmed = u256(int(self.total_violations_confirmed) + 1)
+
+                    # The report fee pays for adjudication and is conserved as
+                    # protocol revenue regardless of a later appeal outcome.
+                    self.treasury = u256(int(self.treasury) + int(val))
+
+                    nda.status = "leaked"
+                    nda.suspect_url = suspect_url
+                    nda.verdict_json = json.dumps(result_payload)
+                    nda.violator = violator
+                    nda.reporter = sender
+                    self.total_violations_confirmed = u256(int(self.total_violations_confirmed) + 1)
+                else:
+                    self.withdrawable[sender] = u256(int(self.withdrawable.get(sender, u256(0))) + int(val))
+            else:
+                # An unattributable verdict (or a reporter identified as the
+                # violator) cannot safely slash collateral.
+                self.withdrawable[sender] = u256(int(self.withdrawable.get(sender, u256(0))) + int(val))
             
         elif verdict == "no_violation":
             other_party = nda.party_b if sender == nda.party_a else nda.party_a
@@ -446,8 +465,16 @@ Fetched content:
         if reward == 0:
             raise gl.vm.UserError("No escrowed reward")
             
+        compensation = int(self.escrowed_compensation.get(nda_id, u256(0)))
+        treasury_fee = int(self.escrowed_treasury_fee.get(nda_id, u256(0)))
+        other_party = nda.party_b if nda.violator == nda.party_a else nda.party_a
+
         self.escrowed_reporter_reward[nda_id] = u256(0)
+        self.escrowed_compensation[nda_id] = u256(0)
+        self.escrowed_treasury_fee[nda_id] = u256(0)
         self.withdrawable[sender] = u256(int(self.withdrawable.get(sender, u256(0))) + reward)
+        self.withdrawable[other_party] = u256(int(self.withdrawable.get(other_party, u256(0))) + compensation)
+        self.treasury = u256(int(self.treasury) + treasury_fee)
 
     @gl.public.write.payable
     def appeal(self, nda_id: u256, counter_evidence: str) -> None:
@@ -462,14 +489,23 @@ Fetched content:
         sender = gl.message.sender_address
         if sender != nda.violator:
             raise gl.vm.UserError("Only the determined violator can appeal")
+
+        if self.appeal_submitted.get(nda_id, False):
+            raise gl.vm.UserError("Appeal already submitted for this verdict")
+
+        now = self._now()
+        if int(nda.appeal_deadline) == 0 or int(now) >= int(nda.appeal_deadline):
+            raise gl.vm.UserError("Appeal window has elapsed")
             
         appeal_fee = (int(nda.slashed_amount) * APPEAL_FEE_BPS) // 10000
         val = gl.message.value
         if int(val) < appeal_fee:
             raise gl.vm.UserError(f"Appeal fee must be at least {appeal_fee}")
             
-        if len(counter_evidence) > 2000:
-            raise gl.vm.UserError("Counter evidence max length 2000")
+        if len(counter_evidence) < 1 or len(counter_evidence) > 2000:
+            raise gl.vm.UserError("Counter evidence length must be 1-2000")
+
+        self.appeal_submitted[nda_id] = True
             
         app_id = u256(len(self.appeals))
         new_appeal = Appeal(
@@ -518,7 +554,7 @@ Return JSON:
 """
             res = gl.nondet.exec_prompt(prompt, response_format="json")
             try:
-                return json.loads(res)
+                return json.loads(res) if isinstance(res, str) else res
             except Exception:
                 return {"verdict": "inconclusive", "reasoning": "JSON parse failed"}
 
@@ -538,16 +574,30 @@ Return JSON:
         
         if verdict == "overturned":
             app.overturned = True
-            
-            # Refund slashed amount, appeal fee, and escrowed reward back to violator
-            reporter_escrow = int(self.escrowed_reporter_reward.get(nda_id, u256(0)))
+
+            # Restore the original collateral position. The slash shares are
+            # simply released from escrow; they must not be added on top of the
+            # restored stake (the previous implementation double-counted them).
+            restored_collateral = int(nda.slashed_amount)
             self.escrowed_reporter_reward[nda_id] = u256(0)
-            
-            self.withdrawable[sender] = u256(int(self.withdrawable.get(sender, u256(0))) + int(nda.slashed_amount) + int(val) + reporter_escrow)
-            
+            self.escrowed_compensation[nda_id] = u256(0)
+            self.escrowed_treasury_fee[nda_id] = u256(0)
+
+            if sender == nda.party_a:
+                nda.stake_a = u256(restored_collateral)
+            else:
+                nda.stake_b = u256(restored_collateral)
+
+            self.withdrawable[sender] = u256(int(self.withdrawable.get(sender, u256(0))) + int(val))
+
             nda.status = "active"
             nda.slashed_amount = u256(0)
             nda.violator = Address("0x0000000000000000000000000000000000000000")
+            nda.reporter = Address("0x0000000000000000000000000000000000000000")
+            nda.appeal_deadline = u256(0)
+
+            self.total_violations_confirmed = u256(int(self.total_violations_confirmed) - 1)
+            self.total_value_slashed = u256(int(self.total_value_slashed) - restored_collateral)
             
         else: # upheld or inconclusive
             self.treasury = u256(int(self.treasury) + int(val))
@@ -634,6 +684,16 @@ Return JSON:
     @gl.public.view
     def get_withdrawable(self, user: Address) -> u256:
         return self.withdrawable.get(user, u256(0))
+
+    @gl.public.view
+    def get_payment_state(self, nda_id: u256) -> str:
+        """Expose escrow liabilities for auditability and conservation tests."""
+        return json.dumps({
+            "reporter_reward_escrow": str(self.escrowed_reporter_reward.get(nda_id, u256(0))),
+            "compensation_escrow": str(self.escrowed_compensation.get(nda_id, u256(0))),
+            "treasury_fee_escrow": str(self.escrowed_treasury_fee.get(nda_id, u256(0))),
+            "appeal_submitted": self.appeal_submitted.get(nda_id, False),
+        })
 
     @gl.public.view
     def get_stats(self) -> str:

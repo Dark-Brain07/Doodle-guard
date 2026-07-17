@@ -15,3 +15,12 @@ export function parseGenAmount(input: string): bigint {
   const fracPart = paddedFrac === "" ? 0n : BigInt(paddedFrac);
   return wholePart * WEI_PER_GEN + fracPart;
 }
+
+/** Format wei as GEN without converting through an imprecise Number. */
+export function formatGenAmount(input: string | bigint, maxDecimals = 4): string {
+  const wei = typeof input === "bigint" ? input : BigInt(input);
+  const whole = wei / WEI_PER_GEN;
+  const fraction = (wei % WEI_PER_GEN).toString().padStart(18, "0");
+  const trimmed = fraction.slice(0, maxDecimals).replace(/0+$/, "");
+  return trimmed ? `${whole}.${trimmed}` : whole.toString();
+}

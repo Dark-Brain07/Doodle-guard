@@ -76,7 +76,7 @@ export default function NDAsDashboard() {
         ) : (
           <div className="text-center py-20 bg-slate-50 dark:bg-slate-900 rounded-xl">
             <h3 className="text-lg font-medium text-slate-900 dark:text-slate-100 mb-2">No NDAs found</h3>
-            <p className="text-slate-500 mb-6">You don't have any active or pending NDAs yet.</p>
+            <p className="text-slate-500 mb-6">You don&apos;t have any active or pending NDAs yet.</p>
             <Link href="/ndas/new">
               <Button>Create your first NDA</Button>
             </Link>

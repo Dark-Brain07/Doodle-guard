@@ -1,20 +1,16 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Wallet, Copy, RefreshCw } from "lucide-react"
 import { getAccountAddress, resetLocalAccount } from "@/lib/genlayer"
 
 export function ConnectWalletButton() {
-  const [address, setAddress] = useState<string | null>(null)
+  const [address] = useState<string | null>(() =>
+    typeof window === "undefined" ? null : getAccountAddress()
+  )
   const [copied, setCopied] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
-
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      setAddress(getAccountAddress())
-    }
-  }, [])
 
   const handleCopy = async () => {
     if (!address) return
