@@ -1,4 +1,4 @@
-# v0.2.17
+# v0.2.18
 # { "Depends": "py-genlayer:1jb45aa8ynh2a9c9xn3b7qqh8sm5q93hwfp7jqmwsfhh8jpz09h6" }
 from genlayer import *
 from dataclasses import dataclass
@@ -78,10 +78,13 @@ class NDASentinel(gl.Contract):
     next_nda_id: u256
     treasury: u256
     owner: Address
-    
+
     total_ndas_created: u256
     total_violations_confirmed: u256
     total_value_slashed: u256
+    total_appeals_overturned: u256
+    total_appeals_upheld: u256
+    total_report_fees_collected: u256
 
     def __init__(self):
         self.owner = gl.message.sender_address
@@ -90,6 +93,9 @@ class NDASentinel(gl.Contract):
         self.total_ndas_created = u256(0)
         self.total_violations_confirmed = u256(0)
         self.total_value_slashed = u256(0)
+        self.total_appeals_overturned = u256(0)
+        self.total_appeals_upheld = u256(0)
+        self.total_report_fees_collected = u256(0)
 
     def _now(self) -> u256:
         """Get deterministic blockchain timestamp safely."""
@@ -232,11 +238,17 @@ class NDASentinel(gl.Contract):
         nda = self.ndas[idx]
         if nda.status != "active":
             raise gl.vm.UserError("NDA is not active")
-            
+
+        # Deadline guard: cannot report leaks after NDA expiry. Anyone can
+        # first call expire_and_withdraw() to release stakes cleanly.
+        current_time = self._now()
+        if int(current_time) >= int(nda.expiry_timestamp):
+            raise gl.vm.UserError("NDA has expired — report window closed")
+
         sender = gl.message.sender_address
         if sender != nda.party_a and sender != nda.party_b:
             raise gl.vm.UserError("Only a party to the NDA can report")
-            
+
         val = gl.message.value
         if int(val) < REPORT_FEE_WEI:
             raise gl.vm.UserError(f"Report fee must be at least {REPORT_FEE_WEI}")
@@ -421,6 +433,9 @@ Fetched content:
                     # The report fee pays for adjudication and is conserved as
                     # protocol revenue regardless of a later appeal outcome.
                     self.treasury = u256(int(self.treasury) + int(val))
+                    self.total_report_fees_collected = u256(
+                        int(self.total_report_fees_collected) + int(val)
+                    )
 
                     nda.status = "leaked"
                     nda.suspect_url = suspect_url
@@ -444,37 +459,69 @@ Fetched content:
             
         self.ndas[idx] = nda
 
-    @gl.public.write
-    def claim_reporter_reward(self, nda_id: u256) -> None:
+    def _finalize_verdict_internal(self, nda_id: u256, sender: Address) -> None:
+        """Distribute slash escrow to the addresses that actually earned it.
+
+        Auth is intentionally permissive: reporter, non-violator, violator,
+        or any address after 2× APPEAL_WINDOW_SECONDS. This closes the call
+        path so the non-violator can always retrieve their compensation
+        share even if the reporter walks away, and unlocks a rescue path
+        for stuck funds after the extended window.
+        """
         idx = int(self.nda_index_by_id.get(nda_id, u256(999999999)))
         if idx >= len(self.ndas) or self.ndas[idx].id != nda_id:
             raise gl.vm.UserError("NDA not found")
-            
+
         nda = self.ndas[idx]
         if nda.status != "leaked":
             raise gl.vm.UserError("NDA is not leaked")
-            
-        sender = gl.message.sender_address
-        if sender != nda.reporter:
-            raise gl.vm.UserError("Only reporter can claim")
-            
-        if int(self._now()) < int(nda.appeal_deadline):
+
+        now = int(self._now())
+        if now < int(nda.appeal_deadline):
             raise gl.vm.UserError("Appeal window not yet elapsed")
-            
+
+        rescue_deadline = int(nda.appeal_deadline) + APPEAL_WINDOW_SECONDS
+        other_party = nda.party_b if nda.violator == nda.party_a else nda.party_a
+        authorised = (
+            sender == nda.reporter
+            or sender == other_party
+            or sender == nda.violator
+            or now >= rescue_deadline
+        )
+        if not authorised:
+            raise gl.vm.UserError(
+                "Only reporter, party, or anyone after rescue window can finalize"
+            )
+
         reward = int(self.escrowed_reporter_reward.get(nda_id, u256(0)))
         if reward == 0:
             raise gl.vm.UserError("No escrowed reward")
-            
+
         compensation = int(self.escrowed_compensation.get(nda_id, u256(0)))
         treasury_fee = int(self.escrowed_treasury_fee.get(nda_id, u256(0)))
-        other_party = nda.party_b if nda.violator == nda.party_a else nda.party_a
 
         self.escrowed_reporter_reward[nda_id] = u256(0)
         self.escrowed_compensation[nda_id] = u256(0)
         self.escrowed_treasury_fee[nda_id] = u256(0)
-        self.withdrawable[sender] = u256(int(self.withdrawable.get(sender, u256(0))) + reward)
-        self.withdrawable[other_party] = u256(int(self.withdrawable.get(other_party, u256(0))) + compensation)
+
+        reporter_addr = nda.reporter
+        self.withdrawable[reporter_addr] = u256(
+            int(self.withdrawable.get(reporter_addr, u256(0))) + reward
+        )
+        self.withdrawable[other_party] = u256(
+            int(self.withdrawable.get(other_party, u256(0))) + compensation
+        )
         self.treasury = u256(int(self.treasury) + treasury_fee)
+
+    @gl.public.write
+    def finalize_verdict(self, nda_id: u256) -> None:
+        """Anyone-in-NDA (or anyone after rescue window) settles escrow."""
+        self._finalize_verdict_internal(nda_id, gl.message.sender_address)
+
+    @gl.public.write
+    def claim_reporter_reward(self, nda_id: u256) -> None:
+        """Kept as a convenience alias with the same relaxed auth."""
+        self._finalize_verdict_internal(nda_id, gl.message.sender_address)
 
     @gl.public.write.payable
     def appeal(self, nda_id: u256, counter_evidence: str) -> None:
@@ -595,15 +642,36 @@ Return JSON:
             nda.violator = Address("0x0000000000000000000000000000000000000000")
             nda.reporter = Address("0x0000000000000000000000000000000000000000")
             nda.appeal_deadline = u256(0)
+            # Wipe stale accusation artifacts so a later leak has a clean slate.
+            nda.suspect_url = ""
+            nda.verdict_json = ""
+            # Reset per-verdict replay guard so a legitimate future accusation
+            # on this same NDA can still be appealed by its new violator.
+            self.appeal_submitted[nda_id] = False
 
-            self.total_violations_confirmed = u256(int(self.total_violations_confirmed) - 1)
-            self.total_value_slashed = u256(int(self.total_value_slashed) - restored_collateral)
-            
+            # Underflow-safe stat updates: an earlier report counted this NDA
+            # in the totals; overturning it must roll those numbers back
+            # without ever wrapping below zero.
+            confirmed_prev = int(self.total_violations_confirmed)
+            slashed_prev = int(self.total_value_slashed)
+            self.total_violations_confirmed = u256(
+                confirmed_prev - 1 if confirmed_prev > 0 else 0
+            )
+            self.total_value_slashed = u256(
+                slashed_prev - restored_collateral
+                if slashed_prev >= restored_collateral
+                else 0
+            )
+            self.total_appeals_overturned = u256(
+                int(self.total_appeals_overturned) + 1
+            )
+
         else: # upheld or inconclusive
             self.treasury = u256(int(self.treasury) + int(val))
             nda.status = "leaked"
             # Allow reporter to claim immediately since appeal is finalized against violator
             nda.appeal_deadline = self._now()
+            self.total_appeals_upheld = u256(int(self.total_appeals_upheld) + 1)
             
         self.appeals[int(app_id)] = app
         self.ndas[idx] = nda
@@ -701,5 +769,44 @@ Return JSON:
             "total_ndas_created": str(self.total_ndas_created),
             "total_violations_confirmed": str(self.total_violations_confirmed),
             "total_value_slashed": str(self.total_value_slashed),
+            "total_appeals_overturned": str(self.total_appeals_overturned),
+            "total_appeals_upheld": str(self.total_appeals_upheld),
+            "total_report_fees_collected": str(self.total_report_fees_collected),
             "treasury": str(self.treasury),
+        })
+
+    @gl.public.view
+    def get_nda_liabilities(self, nda_id: u256) -> str:
+        """All outstanding liabilities the contract owes for one NDA.
+
+        `active_stakes` are stakes still bound to the NDA; `escrows` are the
+        three slash buckets awaiting release; `withdrawable_parties` is the
+        sum of already-released balances the two parties can withdraw.
+        Sum invariant per NDA (across its lifetime, plus treasury):
+
+            initial_stakes + report_fees_in + appeal_fees_in ==
+                active_stakes + escrows + party_withdrawables + treasury_delta
+        """
+        idx = int(self.nda_index_by_id.get(nda_id, u256(999999999)))
+        if idx >= len(self.ndas) or self.ndas[idx].id != nda_id:
+            raise gl.vm.UserError("NDA not found")
+        nda = self.ndas[idx]
+        active_stakes = int(nda.stake_a) + int(nda.stake_b)
+        escrows = (
+            int(self.escrowed_reporter_reward.get(nda_id, u256(0)))
+            + int(self.escrowed_compensation.get(nda_id, u256(0)))
+            + int(self.escrowed_treasury_fee.get(nda_id, u256(0)))
+        )
+        party_withdrawables = (
+            int(self.withdrawable.get(nda.party_a, u256(0)))
+            + int(self.withdrawable.get(nda.party_b, u256(0)))
+        )
+        return json.dumps({
+            "active_stakes": str(active_stakes),
+            "escrows": str(escrows),
+            "party_withdrawables": str(party_withdrawables),
+            "treasury": str(self.treasury),
+            "total_liabilities": str(
+                active_stakes + escrows + party_withdrawables + int(self.treasury)
+            ),
         })
