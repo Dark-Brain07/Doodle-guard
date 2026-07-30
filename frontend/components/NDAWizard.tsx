@@ -113,9 +113,13 @@ export function NDAWizard() {
       })
       setLastTxHash(hash)
 
+      // ACCEPTED = leader executed + validators agreed. FINALIZED needs
+      // the full appeal window (~5+ min) to close — not a good UI block.
       await client.waitForTransactionReceipt({
         hash,
-        status: "FINALIZED" as never,
+        status: "ACCEPTED" as never,
+        retries: 120,
+        interval: 3000,
       })
 
       router.push("/ndas")

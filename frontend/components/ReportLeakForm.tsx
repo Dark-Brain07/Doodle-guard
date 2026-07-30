@@ -66,9 +66,14 @@ export function ReportLeakForm() {
       });
       setLastTxHash(hash);
 
+      // report_leak runs web.render + LLM inside consensus — validator
+      // agreement can take multiple minutes on studionet. Give the poller
+      // a 10-minute ceiling instead of the default 150 s.
       await client.waitForTransactionReceipt({
         hash,
-        status: "FINALIZED" as never,
+        status: "ACCEPTED" as never,
+        retries: 200,
+        interval: 3000,
       });
 
       router.push(`/ndas/${ndaId}`);

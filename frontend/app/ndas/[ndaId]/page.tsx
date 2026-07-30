@@ -122,11 +122,20 @@ export default function NDADetailPage() {
   type WriteHash = Awaited<ReturnType<typeof client.writeContract>>;
   const runWrite = async (
     fn: () => Promise<WriteHash>,
+    opts?: { nondet?: boolean },
   ): Promise<WriteHash | null> => {
     await ensureCorrectChainBeforeWrite();
     const hash = await fn();
     setLastTxHash(hash);
-    await client.waitForTransactionReceipt({ hash, status: "FINALIZED" as never });
+    // ACCEPTED = leader executed + validators agreed. FINALIZED would wait
+    // for the full appeal window to close (~5+ min on studionet) which is
+    // not what a UI should block on. Nondet-heavy writes (appeal) still
+    // need extra time for the LLM/web fetch inside consensus, so bump the
+    // poller ceiling from the SDK default 150 s to 10 min.
+    const wait = opts?.nondet
+      ? { hash, status: "ACCEPTED" as never, retries: 200, interval: 3000 }
+      : { hash, status: "ACCEPTED" as never };
+    await client.waitForTransactionReceipt(wait);
     return hash;
   };
 
@@ -195,13 +204,15 @@ export default function NDADetailPage() {
     setIsAppealing(true);
     try {
       const appealFee = BigInt(nda.slashed_amount) / 10n;
-      await runWrite(() =>
-        client.writeContract({
-          address: CONTRACT_ADDRESS,
-          functionName: "appeal",
-          args: [BigInt(nda.id), counterEvidence.trim()],
-          value: appealFee,
-        }),
+      await runWrite(
+        () =>
+          client.writeContract({
+            address: CONTRACT_ADDRESS,
+            functionName: "appeal",
+            args: [BigInt(nda.id), counterEvidence.trim()],
+            value: appealFee,
+          }),
+        { nondet: true },
       );
       setCounterEvidence("");
       await fetchNDA(address);
