@@ -3,13 +3,16 @@
 import { useCallback, useEffect, useState } from "react"
 import { useParams } from "next/navigation"
 import {
+  assertWritable,
   client,
   CONTRACT_ADDRESS,
   ensureCorrectChainBeforeWrite,
   explorerTxUrl,
   getAccountAddress,
   toCalldataAddress,
+  walletReady,
   WALLET_CHANGED_EVENT,
+  WalletNotReadyError,
 } from "@/lib/genlayer"
 import { ConnectWalletButton } from "@/components/ConnectWalletButton"
 import { StatusBadge } from "@/components/StatusBadge"
@@ -92,6 +95,9 @@ export default function NDADetailPage() {
 
   useEffect(() => {
     const init = async () => {
+      if (typeof window !== "undefined") {
+        await walletReady;
+      }
       const userAddr = typeof window !== "undefined" ? getAccountAddress() : undefined;
       if (userAddr) setAddress(userAddr);
       await fetchNDA(userAddr);
@@ -124,6 +130,7 @@ export default function NDADetailPage() {
     fn: () => Promise<WriteHash>,
     opts?: { nondet?: boolean },
   ): Promise<WriteHash | null> => {
+    await assertWritable();
     await ensureCorrectChainBeforeWrite();
     const hash = await fn();
     setLastTxHash(hash);
@@ -218,7 +225,11 @@ export default function NDADetailPage() {
       await fetchNDA(address);
     } catch (err) {
       console.error(err);
-      alert(parseContractError(err));
+      if (err instanceof WalletNotReadyError) {
+        alert(err.message);
+      } else {
+        alert(parseContractError(err));
+      }
     } finally {
       setIsAppealing(false);
     }
@@ -242,7 +253,11 @@ export default function NDADetailPage() {
       await fetchNDA(address);
     } catch (err) {
       console.error(err);
-      alert(parseContractError(err));
+      if (err instanceof WalletNotReadyError) {
+        alert(err.message);
+      } else {
+        alert(parseContractError(err));
+      }
     } finally {
       setIsClaimingReward(false);
     }

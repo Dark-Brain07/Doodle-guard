@@ -3,10 +3,12 @@
 import { useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import {
+  assertWritable,
   client,
   CONTRACT_ADDRESS,
   ensureCorrectChainBeforeWrite,
   explorerTxUrl,
+  WalletNotReadyError,
 } from "@/lib/genlayer"
 import { decryptVault, VaultData } from "@/lib/vault"
 import { parseContractError } from "@/lib/utils"
@@ -49,6 +51,7 @@ export function ReportLeakForm() {
     setIsSubmitting(true);
     
     try {
+      await assertWritable();
       // 1 GEN reporting fee
       const reportFee = 10n ** 18n;
 
@@ -80,7 +83,11 @@ export function ReportLeakForm() {
 
     } catch (err) {
       console.error(err);
-      alert(parseContractError(err));
+      if (err instanceof WalletNotReadyError) {
+        alert(err.message);
+      } else {
+        alert(parseContractError(err));
+      }
     } finally {
       setIsSubmitting(false);
     }

@@ -6,10 +6,12 @@ import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
 import {
+  assertWritable,
   client,
   CONTRACT_ADDRESS,
   ensureCorrectChainBeforeWrite,
   explorerTxUrl,
+  WalletNotReadyError,
 } from "@/lib/genlayer"
 import { parseGenAmount } from "@/lib/amount"
 import { generateSalt, hashKeyword } from "@/lib/crypto"
@@ -90,6 +92,8 @@ export function NDAWizard() {
     
     setIsSubmitting(true)
     try {
+      await assertWritable()
+
       const hashes = keywordsList.map(kw => hashKeyword(kw, salt))
       const hashesJson = JSON.stringify(hashes)
 
@@ -126,7 +130,11 @@ export function NDAWizard() {
 
     } catch (err) {
       console.error(err)
-      alert(parseContractError(err))
+      if (err instanceof WalletNotReadyError) {
+        alert(err.message)
+      } else {
+        alert(parseContractError(err))
+      }
     } finally {
       setIsSubmitting(false)
     }

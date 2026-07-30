@@ -212,6 +212,25 @@ export async function restoreWalletSession(): Promise<void> {
   }
 }
 
+/**
+ * Kick off session restore at app load so pages that mount without ever
+ * showing the wallet button (e.g. dashboard on hard-refresh) still end up
+ * on the user's MetaMask address before their first read. `walletReady`
+ * resolves once restore has been attempted — awaiting it prevents the
+ * dashboard from querying `get_user_ndas(burner)` and then rendering
+ * "No NDAs found".
+ */
+let walletReadyResolver: (() => void) | null = null;
+export const walletReady: Promise<void> = new Promise((resolve) => {
+  walletReadyResolver = resolve;
+});
+if (typeof window !== "undefined") {
+  // Fire-and-forget; whether it succeeds or not, resolve() unblocks callers.
+  restoreWalletSession()
+    .catch(() => {})
+    .finally(() => walletReadyResolver?.());
+}
+
 // ---------------------------------------------------------------------------
 // Compatibility helpers used across pages.
 // ---------------------------------------------------------------------------
@@ -238,6 +257,29 @@ export async function ensureCorrectChainBeforeWrite(): Promise<void> {
     await ensureStudionetChain();
   } catch {
     /* let the write attempt surface the real error */
+  }
+}
+
+export class WalletNotReadyError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "WalletNotReadyError";
+  }
+}
+
+/**
+ * Call before any write path. Blocks with a clear error if the current
+ * signer is the demo-only burner (zero GEN on studionet, cannot pay
+ * stakes) — the alternative is a MetaMask sign prompt against an
+ * unfunded account whose tx will silently fail after a long wait.
+ */
+export async function assertWritable(): Promise<void> {
+  await walletReady;
+  if (walletMode === "burner") {
+    throw new WalletNotReadyError(
+      "Connect MetaMask (funded on studionet) before submitting. " +
+        "The local burner has zero GEN and cannot pay stakes."
+    );
   }
 }
 
