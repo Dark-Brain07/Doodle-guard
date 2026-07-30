@@ -7,7 +7,7 @@ import {
 import { studionet } from "genlayer-js/chains";
 import type { CalldataEncodable } from "genlayer-js/types";
 
-const FALLBACK_ADDRESS = "0x10562A17a26D02A1591F49F3013D66e1bBCc6F09";
+const FALLBACK_ADDRESS = "0xa39218800F583BB35B553a34ff479197Dc6Ca7DE";
 const ACCOUNT_KEY = "nda-sentinel-account-pk";
 const MODE_KEY = "nda-sentinel-wallet-mode";
 export const WALLET_CHANGED_EVENT = "nda-sentinel:wallet-changed";

@@ -1,15 +1,24 @@
 {
   "studionet": {
-    "NDASentinel": "0x10562A17a26D02A1591F49F3013D66e1bBCc6F09",
-    "deployed_at": "2026-07-17",
+    "NDASentinel": "0xa39218800F583BB35B553a34ff479197Dc6Ca7DE",
+    "deployed_at": "2026-07-30",
+    "version": "v0.2.18",
     "source": "contracts/nda_sentinel.py",
     "class": "NDASentinel",
     "rpc": "https://studio.genlayer.com/api",
-    "notes": "2026-07-17 redeploy: payment-conservation accounting, appeal deadline/replay protections, collateral restoration, reward path, and v0.2.17 runner header. Schema verified in Studio."
+    "notes": "v0.2.18 redeploy: finalize_verdict path, get_nda_liabilities view, appeal_submitted reset on overturn, report_leak expiry gate, extended stats counters (total_appeals_overturned/upheld, total_report_fees_collected). Addresses the 2026-07-30 resubmission-review feedback in full."
   },
-  "studionet_previous": {
-    "NDASentinel": "0x42969f64860D42194916a2E4e3A80509617FF2e0",
-    "deployed_at": "2026-06-18",
-    "notes": "Wiped by studionet reset. Contract no longer exists on-chain — kept for reference only."
-  }
+  "studionet_previous": [
+    {
+      "NDASentinel": "0x10562A17a26D02A1591F49F3013D66e1bBCc6F09",
+      "deployed_at": "2026-07-17",
+      "version": "v0.2.17",
+      "notes": "Predecessor build. Superseded by v0.2.18 — missing finalize_verdict, get_nda_liabilities, appeal-replay reset, and expiry gate. Kept for provenance."
+    },
+    {
+      "NDASentinel": "0x42969f64860D42194916a2E4e3A80509617FF2e0",
+      "deployed_at": "2026-06-18",
+      "notes": "Wiped by studionet reset."
+    }
+  ]
 }

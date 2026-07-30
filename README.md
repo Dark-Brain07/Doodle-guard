@@ -17,15 +17,12 @@ distributes stakes based on the verdict, with a full appeal cycle.
 
 | Network    | Address | Explorer |
 |------------|---------|----------|
-| studionet  | `0x10562A17a26D02A1591F49F3013D66e1bBCc6F09` (v0.2.17 build) | [Open in Studio](https://studio.genlayer.com/?import-contract=0x10562A17a26D02A1591F49F3013D66e1bBCc6F09) |
+| studionet  | `0xa39218800F583BB35B553a34ff479197Dc6Ca7DE` (v0.2.18) | [Open in Studio](https://studio.genlayer.com/?import-contract=0xa39218800F583BB35B553a34ff479197Dc6Ca7DE) |
 
-> ⚠️ **v0.2.18 needs a redeploy.** The v0.2.17 address above was compiled
-> before the new `finalize_verdict` method, `get_nda_liabilities` view,
-> new stats counters, and the appeal-replay reset landed. Redeploy the
-> current `contracts/nda_sentinel.py` on
-> [studio.genlayer.com/contracts](https://studio.genlayer.com/contracts)
-> and set `NEXT_PUBLIC_CONTRACT_ADDRESS` in `frontend/.env` to the new
-> address before pushing a v0.2.18 build to production.
+Prior addresses (superseded): `0x10562A17…6F09` (v0.2.17, 2026-07-17),
+`0x42969f64…F2e0` (2026-06-18, wiped by studionet reset). See
+[`deployment/deployed_addresses.json`](deployment/deployed_addresses.json)
+for provenance.
 
 ## Why GenLayer
 
