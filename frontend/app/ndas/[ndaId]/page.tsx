@@ -2,7 +2,15 @@
 
 import { useCallback, useEffect, useState } from "react"
 import { useParams } from "next/navigation"
-import { client, CONTRACT_ADDRESS, getAccountAddress, toCalldataAddress } from "@/lib/genlayer"
+import {
+  client,
+  CONTRACT_ADDRESS,
+  ensureCorrectChainBeforeWrite,
+  explorerTxUrl,
+  getAccountAddress,
+  toCalldataAddress,
+  WALLET_CHANGED_EVENT,
+} from "@/lib/genlayer"
 import { ConnectWalletButton } from "@/components/ConnectWalletButton"
 import { StatusBadge } from "@/components/StatusBadge"
 import { VerdictPanel } from "@/components/VerdictPanel"
@@ -27,6 +35,7 @@ export default function NDADetailPage() {
   const [counterEvidence, setCounterEvidence] = useState("")
   const [withdrawable, setWithdrawable] = useState<string>("0")
   const [currentTimeMs, setCurrentTimeMs] = useState<number | null>(null)
+  const [lastTxHash, setLastTxHash] = useState<string | null>(null)
 
   const fetchNDA = useCallback(async (userAddress?: string) => {
     try {
@@ -88,6 +97,16 @@ export default function NDADetailPage() {
       await fetchNDA(userAddr);
     }
     init();
+    const onWalletChange = () => {
+      const newAddr = getAccountAddress();
+      setAddress(newAddr);
+      fetchNDA(newAddr);
+    };
+    if (typeof window !== "undefined") {
+      window.addEventListener(WALLET_CHANGED_EVENT, onWalletChange);
+      return () =>
+        window.removeEventListener(WALLET_CHANGED_EVENT, onWalletChange);
+    }
   }, [fetchNDA])
 
   useEffect(() => {
@@ -100,17 +119,29 @@ export default function NDADetailPage() {
     }
   }, [])
 
+  type WriteHash = Awaited<ReturnType<typeof client.writeContract>>;
+  const runWrite = async (
+    fn: () => Promise<WriteHash>,
+  ): Promise<WriteHash | null> => {
+    await ensureCorrectChainBeforeWrite();
+    const hash = await fn();
+    setLastTxHash(hash);
+    await client.waitForTransactionReceipt({ hash, status: "FINALIZED" as never });
+    return hash;
+  };
+
   const handleActivate = async () => {
     if (!nda || !address) return;
     setIsActivating(true);
     try {
-      const hash = await client.writeContract({
-        address: CONTRACT_ADDRESS,
-        functionName: "activate_nda",
-        args: [BigInt(nda.id)],
-        value: BigInt(nda.stake_a),
-      });
-      await client.waitForTransactionReceipt({ hash, status: "FINALIZED" as never });
+      await runWrite(() =>
+        client.writeContract({
+          address: CONTRACT_ADDRESS,
+          functionName: "activate_nda",
+          args: [BigInt(nda.id)],
+          value: BigInt(nda.stake_a),
+        }),
+      );
       await fetchNDA(address);
     } catch (err) {
       console.error(err);
@@ -124,13 +155,14 @@ export default function NDADetailPage() {
     if (!nda || !address) return;
     setIsExpiring(true);
     try {
-      const hash = await client.writeContract({
-        address: CONTRACT_ADDRESS,
-        functionName: "expire_and_withdraw",
-        args: [BigInt(nda.id)],
-        value: BigInt(0),
-      });
-      await client.waitForTransactionReceipt({ hash, status: "FINALIZED" as never });
+      await runWrite(() =>
+        client.writeContract({
+          address: CONTRACT_ADDRESS,
+          functionName: "expire_and_withdraw",
+          args: [BigInt(nda.id)],
+          value: BigInt(0),
+        }),
+      );
       await fetchNDA(address);
     } catch (err) {
       console.error(err);
@@ -143,14 +175,14 @@ export default function NDADetailPage() {
   const handleWithdraw = async () => {
     if (!address) return;
     try {
-      const hash = await client.writeContract({
-        address: CONTRACT_ADDRESS,
-        functionName: "withdraw",
-        args: [],
-        value: BigInt(0),
-      });
-      await client.waitForTransactionReceipt({ hash, status: "FINALIZED" as never });
-      alert("Withdrawn successfully!");
+      await runWrite(() =>
+        client.writeContract({
+          address: CONTRACT_ADDRESS,
+          functionName: "withdraw",
+          args: [],
+          value: BigInt(0),
+        }),
+      );
       await fetchNDA(address);
     } catch (err) {
       console.error(err);
@@ -163,13 +195,14 @@ export default function NDADetailPage() {
     setIsAppealing(true);
     try {
       const appealFee = BigInt(nda.slashed_amount) / 10n;
-      const hash = await client.writeContract({
-        address: CONTRACT_ADDRESS,
-        functionName: "appeal",
-        args: [BigInt(nda.id), counterEvidence.trim()],
-        value: appealFee,
-      });
-      await client.waitForTransactionReceipt({ hash, status: "FINALIZED" as never });
+      await runWrite(() =>
+        client.writeContract({
+          address: CONTRACT_ADDRESS,
+          functionName: "appeal",
+          args: [BigInt(nda.id), counterEvidence.trim()],
+          value: appealFee,
+        }),
+      );
       setCounterEvidence("");
       await fetchNDA(address);
     } catch (err) {
@@ -184,13 +217,17 @@ export default function NDADetailPage() {
     if (!nda || !address) return;
     setIsClaimingReward(true);
     try {
-      const hash = await client.writeContract({
-        address: CONTRACT_ADDRESS,
-        functionName: "claim_reporter_reward",
-        args: [BigInt(nda.id)],
-        value: 0n,
-      });
-      await client.waitForTransactionReceipt({ hash, status: "FINALIZED" as never });
+      // finalize_verdict is the anyone-in-NDA anyone-after-rescue path added
+      // in v0.2.18. claim_reporter_reward is kept as its alias for callers
+      // built against the old ABI.
+      await runWrite(() =>
+        client.writeContract({
+          address: CONTRACT_ADDRESS,
+          functionName: "finalize_verdict",
+          args: [BigInt(nda.id)],
+          value: 0n,
+        }),
+      );
       await fetchNDA(address);
     } catch (err) {
       console.error(err);
@@ -223,7 +260,10 @@ export default function NDADetailPage() {
   const isReporter = !!address && nda.reporter.toLowerCase() === address.toLowerCase();
   const appealDeadlineMs = Number(nda.appeal_deadline) * 1000;
   const appealOpen = currentTimeMs !== null && nda.status === "leaked" && nda.violator.toLowerCase() !== zeroAddress && currentTimeMs < appealDeadlineMs;
-  const rewardClaimable = currentTimeMs !== null && nda.status === "leaked" && isReporter && appealDeadlineMs > 0 && currentTimeMs >= appealDeadlineMs;
+  // finalize_verdict is callable by reporter, either party of the NDA, or
+  // anyone after the rescue window — the contract enforces the exact auth
+  // rule; the UI just surfaces the button to anyone who could plausibly call.
+  const rewardClaimable = currentTimeMs !== null && nda.status === "leaked" && (isReporter || isPartyA || isPartyB) && appealDeadlineMs > 0 && currentTimeMs >= appealDeadlineMs;
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-4xl space-y-8">
@@ -239,6 +279,20 @@ export default function NDADetailPage() {
         </div>
         <ConnectWalletButton />
       </div>
+
+      {lastTxHash && (
+        <div className="rounded border bg-slate-50 dark:bg-slate-900/40 text-xs px-3 py-2 flex items-center justify-between">
+          <span className="text-slate-500">Last transaction:</span>
+          <a
+            href={explorerTxUrl(lastTxHash)}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-mono text-blue-600 dark:text-blue-400 hover:underline break-all ml-2"
+          >
+            {lastTxHash.substring(0, 10)}…{lastTxHash.substring(60)}
+          </a>
+        </div>
+      )}
 
       {BigInt(withdrawable) > BigInt(0) && (
         <Card className="bg-emerald-50 border-emerald-200 dark:bg-emerald-950/20 dark:border-emerald-900/50">
@@ -324,11 +378,18 @@ export default function NDADetailPage() {
         <Card className="border-emerald-300 bg-emerald-50 dark:bg-emerald-950/20">
           <CardContent className="p-6 flex items-center justify-between gap-4">
             <div>
-              <h3 className="font-bold text-emerald-900 dark:text-emerald-300">Reporter reward finalized</h3>
-              <p className="text-sm text-emerald-800 dark:text-emerald-400">The appeal window is closed. Release the escrowed reward and compensation.</p>
+              <h3 className="font-bold text-emerald-900 dark:text-emerald-300">Verdict ready to finalize</h3>
+              <p className="text-sm text-emerald-800 dark:text-emerald-400">
+                Appeal window closed. Anyone in the NDA can release the escrow — the
+                reporter gets 80 %, the non-violator 17 %, treasury 3 %.
+              </p>
             </div>
             <Button onClick={handleClaimReward} disabled={isClaimingReward} className="bg-emerald-600 hover:bg-emerald-700">
-              {isClaimingReward ? "Claiming..." : "Claim Reward"}
+              {isClaimingReward
+                ? "Finalizing..."
+                : isReporter
+                ? "Claim Reward"
+                : "Finalize Verdict"}
             </Button>
           </CardContent>
         </Card>

@@ -5,7 +5,12 @@ import { useRouter } from "next/navigation"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
-import { client, CONTRACT_ADDRESS } from "@/lib/genlayer"
+import {
+  client,
+  CONTRACT_ADDRESS,
+  ensureCorrectChainBeforeWrite,
+  explorerTxUrl,
+} from "@/lib/genlayer"
 import { parseGenAmount } from "@/lib/amount"
 import { generateSalt, hashKeyword } from "@/lib/crypto"
 import { downloadVaultFile } from "@/lib/vault"
@@ -40,6 +45,7 @@ export function NDAWizard() {
   const [keywordsList, setKeywordsList] = useState<string[]>([])
   const [downloaded, setDownloaded] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [lastTxHash, setLastTxHash] = useState<string | null>(null)
   const router = useRouter()
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -92,6 +98,7 @@ export function NDAWizard() {
       )
       const weiAmount = parseGenAmount(values.stakeAmount)
 
+      await ensureCorrectChainBeforeWrite()
       const hash = await client.writeContract({
         address: CONTRACT_ADDRESS,
         functionName: "create_nda",
@@ -104,6 +111,7 @@ export function NDAWizard() {
         ],
         value: weiAmount,
       })
+      setLastTxHash(hash)
 
       await client.waitForTransactionReceipt({
         hash,
@@ -323,9 +331,28 @@ export function NDAWizard() {
                 <div className="flex gap-2 pt-4">
                   <Button type="button" variant="ghost" onClick={() => setStep(2)}>Back</Button>
                   <Button type="submit" disabled={!downloaded || isSubmitting}>
-                    {isSubmitting ? "Creating..." : "Create NDA & Stake"}
+                    {isSubmitting ? "Awaiting consensus…" : "Create NDA & Stake"}
                   </Button>
                 </div>
+                {isSubmitting && (
+                  <p className="text-xs text-slate-500 pt-2">
+                    A non-deterministic transaction ran through GenLayer consensus can take
+                    30 s – 3 min depending on validator load. Keep this tab open.
+                  </p>
+                )}
+                {lastTxHash && (
+                  <div className="text-xs text-slate-500 pt-2">
+                    Tx:{" "}
+                    <a
+                      href={explorerTxUrl(lastTxHash)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-mono text-blue-600 dark:text-blue-400 hover:underline"
+                    >
+                      {lastTxHash.substring(0, 10)}…{lastTxHash.substring(60)}
+                    </a>
+                  </div>
+                )}
               </div>
             )}
 

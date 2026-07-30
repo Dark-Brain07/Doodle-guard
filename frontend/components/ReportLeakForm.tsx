@@ -2,7 +2,12 @@
 
 import { useState } from "react"
 import { useParams, useRouter } from "next/navigation"
-import { client, CONTRACT_ADDRESS } from "@/lib/genlayer"
+import {
+  client,
+  CONTRACT_ADDRESS,
+  ensureCorrectChainBeforeWrite,
+  explorerTxUrl,
+} from "@/lib/genlayer"
 import { decryptVault, VaultData } from "@/lib/vault"
 import { parseContractError } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -20,6 +25,7 @@ export function ReportLeakForm() {
   const [decryptedVault, setDecryptedVault] = useState<VaultData | null>(null)
   const [selectedKeywords, setSelectedKeywords] = useState<string[]>([])
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [lastTxHash, setLastTxHash] = useState<string | null>(null)
 
   const handleDecrypt = async () => {
     if (!vaultFile || !vaultPassword) return;
@@ -46,6 +52,7 @@ export function ReportLeakForm() {
       // 1 GEN reporting fee
       const reportFee = 10n ** 18n;
 
+      await ensureCorrectChainBeforeWrite();
       const hash = await client.writeContract({
         address: CONTRACT_ADDRESS,
         functionName: "report_leak",
@@ -57,6 +64,7 @@ export function ReportLeakForm() {
         ],
         value: reportFee,
       });
+      setLastTxHash(hash);
 
       await client.waitForTransactionReceipt({
         hash,
@@ -139,13 +147,26 @@ export function ReportLeakForm() {
               ))}
             </div>
 
-            <Button 
-              className="w-full bg-rose-600 hover:bg-rose-700" 
+            <Button
+              className="w-full bg-rose-600 hover:bg-rose-700"
               onClick={onSubmit}
               disabled={selectedKeywords.length === 0 || !suspectUrl || isSubmitting}
             >
               {isSubmitting ? "Submitting to AI Jury (this may take a few minutes)..." : "Pay 1 GEN & Submit Report"}
             </Button>
+            {lastTxHash && (
+              <div className="text-xs text-slate-500 text-center">
+                Tx:{" "}
+                <a
+                  href={explorerTxUrl(lastTxHash)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-mono text-blue-600 dark:text-blue-400 hover:underline"
+                >
+                  {lastTxHash.substring(0, 10)}…{lastTxHash.substring(60)}
+                </a>
+              </div>
+            )}
           </div>
         )}
       </CardContent>
