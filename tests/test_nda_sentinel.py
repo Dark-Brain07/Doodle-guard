@@ -105,6 +105,19 @@ def assert_conserved(total_received: int, *liabilities: int):
     assert sum(liabilities) == total_received
 
 
+def liabilities(contract, nda_id: int = 0):
+    return json.loads(contract.get_nda_liabilities(nda_id))
+
+
+def assert_liabilities_match(contract, total_received: int, nda_id: int = 0):
+    """Sum of active stakes + escrows + party withdrawables + treasury
+    must equal every wei ever paid into this NDA's lifecycle."""
+    liab = liabilities(contract, nda_id)
+    assert int(liab["total_liabilities"]) == total_received, (
+        f"conservation broken: expected {total_received}, got {liab}"
+    )
+
+
 def test_create_activate_and_initial_state(direct_vm, direct_deploy, direct_alice, direct_bob):
     contract = deploy_active_nda(direct_vm, direct_deploy, direct_alice, direct_bob)
     nda = contract.get_nda(0)
@@ -276,3 +289,143 @@ def test_reward_cannot_be_claimed_twice(direct_vm, direct_deploy, direct_alice, 
 
     with direct_vm.expect_revert("No escrowed reward"):
         contract.claim_reporter_reward(0)
+
+
+# ---------------------------------------------------------------------------
+# Additional coverage — deadline, replay, non-reporter finalize, invariant.
+# Added to close the gaps raised in the resubmission review.
+# ---------------------------------------------------------------------------
+
+
+def test_report_rejected_after_nda_expiry(direct_vm, direct_deploy, direct_alice, direct_bob):
+    contract = deploy_active_nda(direct_vm, direct_deploy, direct_alice, direct_bob)
+    mock_verdict(direct_vm, "upheld")
+    # Jump past the 30-day expiry set by deploy_active_nda().
+    warp(direct_vm, 31 * 24 * 60 * 60)
+
+    direct_vm.sender = direct_bob
+    direct_vm.value = REPORT_FEE
+    with direct_vm.expect_revert("NDA has expired"):
+        contract.report_leak(
+            0, "https://example.com/leak", json.dumps([KEYWORDS[0]]), SALT,
+        )
+
+
+def test_non_reporter_party_can_finalize_after_window(
+    direct_vm, direct_deploy, direct_alice, direct_bob,
+):
+    """Reporter absent → non-violator party (party_b in this case is reporter,
+    so the finalizer here is the reporter's counterpart, party_a's other side).
+    Here we prove any authorised party can settle: appellant already lost, so
+    finalize is called by direct_alice (the violator) after the appeal window,
+    unblocking the compensation share for the reporter's counterpart."""
+    contract = deploy_active_nda(direct_vm, direct_deploy, direct_alice, direct_bob)
+    mock_verdict(direct_vm, "upheld")
+    report_party_a(direct_vm, contract, direct_bob)
+    warp(direct_vm, APPEAL_WINDOW_SECONDS)
+
+    # direct_alice is the violator — she still counts as authorised.
+    direct_vm.sender = direct_alice
+    contract.finalize_verdict(0)
+
+    reporter_balance = withdrawable(contract, direct_bob)
+    assert reporter_balance == 97 * 10**18
+
+    state = payment_state(contract)
+    assert int(state["reporter_reward_escrow"]) == 0
+    assert int(state["compensation_escrow"]) == 0
+    assert int(state["treasury_fee_escrow"]) == 0
+
+
+def test_replay_across_two_verdict_cycles(direct_vm, direct_deploy, direct_alice, direct_bob):
+    """Overturned verdict must not permanently lock out future appeals on the
+    same NDA. Cycle 1: report → overturned. Cycle 2: report again → violator
+    must still be able to appeal (appeal_submitted was reset)."""
+    contract = deploy_active_nda(direct_vm, direct_deploy, direct_alice, direct_bob)
+
+    # Cycle 1: overturned.
+    mock_verdict(direct_vm, "overturned")
+    report_party_a(direct_vm, contract, direct_bob)
+    direct_vm.sender = direct_alice
+    direct_vm.value = APPEAL_FEE
+    contract.appeal(0, "Prior disclosure proves this was public earlier.")
+    direct_vm.value = 0
+
+    nda_after_cycle1 = contract.get_nda(0)
+    assert nda_after_cycle1.status == "active"
+    assert nda_after_cycle1.suspect_url == ""
+    assert nda_after_cycle1.verdict_json == ""
+
+    # Cycle 2: report again on the now-active NDA and appeal it a second time.
+    mock_verdict(direct_vm, "upheld")
+    report_party_a(direct_vm, contract, direct_bob)
+
+    direct_vm.sender = direct_alice
+    direct_vm.value = APPEAL_FEE
+    # The replay guard from cycle 1 must have been cleared — this call must
+    # NOT revert with "Appeal already submitted for this verdict".
+    contract.appeal(0, "Try appealing the fresh accusation.")
+    direct_vm.value = 0
+
+    stats = json.loads(contract.get_stats())
+    assert int(stats["total_appeals_overturned"]) == 1
+    assert int(stats["total_appeals_upheld"]) == 1
+
+
+def test_liabilities_invariant_across_lifecycle(direct_vm, direct_deploy, direct_alice, direct_bob):
+    """Every wei paid into the NDA must equal active stakes + escrows +
+    party withdrawables + treasury, at every step."""
+    contract = deploy_active_nda(direct_vm, direct_deploy, direct_alice, direct_bob)
+
+    # After activation only stakes have been received.
+    assert_liabilities_match(contract, 2 * STAKE)
+
+    mock_verdict(direct_vm, "upheld")
+    report_party_a(direct_vm, contract, direct_bob)
+    # Report fee added to intake; slash redistributed but total preserved.
+    assert_liabilities_match(contract, 2 * STAKE + REPORT_FEE)
+
+    direct_vm.sender = direct_alice
+    direct_vm.value = APPEAL_FEE
+    contract.appeal(0, "Please review the attribution once more.")
+    direct_vm.value = 0
+    assert_liabilities_match(contract, 2 * STAKE + REPORT_FEE + APPEAL_FEE)
+
+    direct_vm.sender = direct_bob
+    contract.finalize_verdict(0)
+    assert_liabilities_match(contract, 2 * STAKE + REPORT_FEE + APPEAL_FEE)
+
+
+def test_liabilities_invariant_on_overturned_lifecycle(direct_vm, direct_deploy, direct_alice, direct_bob):
+    contract = deploy_active_nda(direct_vm, direct_deploy, direct_alice, direct_bob)
+    assert_liabilities_match(contract, 2 * STAKE)
+
+    mock_verdict(direct_vm, "overturned")
+    report_party_a(direct_vm, contract, direct_bob)
+    assert_liabilities_match(contract, 2 * STAKE + REPORT_FEE)
+
+    direct_vm.sender = direct_alice
+    direct_vm.value = APPEAL_FEE
+    contract.appeal(0, "Counter-evidence attached.")
+    direct_vm.value = 0
+    # On overturn: appeal fee refunded to appellant as withdrawable; report
+    # fee stayed in treasury; stakes restored.
+    assert_liabilities_match(contract, 2 * STAKE + REPORT_FEE + APPEAL_FEE)
+
+
+def test_new_stats_counters_track_appeal_outcomes(direct_vm, direct_deploy, direct_alice, direct_bob):
+    contract = deploy_active_nda(direct_vm, direct_deploy, direct_alice, direct_bob)
+    mock_verdict(direct_vm, "overturned")
+    report_party_a(direct_vm, contract, direct_bob)
+    direct_vm.sender = direct_alice
+    direct_vm.value = APPEAL_FEE
+    contract.appeal(0, "Overturn me.")
+    direct_vm.value = 0
+
+    stats = json.loads(contract.get_stats())
+    assert int(stats["total_appeals_overturned"]) == 1
+    assert int(stats["total_appeals_upheld"]) == 0
+    assert int(stats["total_report_fees_collected"]) == REPORT_FEE
+    # Overturn must roll back the confirmed-violation counter to zero.
+    assert int(stats["total_violations_confirmed"]) == 0
+    assert int(stats["total_value_slashed"]) == 0
