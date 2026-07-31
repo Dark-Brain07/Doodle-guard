@@ -9,6 +9,73 @@ resubmission-review feedback item(s) it addresses.
 
 ---
 
+## [0.2.19] — 2026-07-31 — Reputation + multi-source cross-reference + event log
+
+Bundles three new capabilities. Each maps to one Portal milestone
+submission per the Builder Points rubric (Loại 3c, 1b, 4).
+
+### Milestone A — Reputation system (Loại 3c)
+
+- `reputation_score: TreeMap[str, u256]` keyed by lowercase address hex
+  (R19 policy). Baseline 1000, clamped at 0.
+- `reputation_initialized[key]` lets `_rep_get()` return baseline lazily
+  without a write so views stay cheap.
+- Deltas: +50 on confirmed report, -100 on confirmed violation, +100 on
+  overturn win, -75 on false report. Overturn also rolls back the two
+  deltas the original report applied, so a proven-innocent appellant
+  and their reporter net out to the correct final position.
+- Per-address counters: `reporter_reports_count`, `reporter_confirmed_count`,
+  `violator_confirmed_count`, `overturn_wins_count`, `false_report_count`.
+- Views: `get_reputation(user)` returns `{score, tier, baseline, ...}` as
+  JSON; `get_reputation_thresholds()` exposes the tuning constants.
+- Tiers: `verified` (≥ 1200), `trusted` (≥ 1050), `newcomer` (default),
+  `flagged` (< 800).
+- 5 new tests: baseline, confirmed-report reward, overturn rollback,
+  threshold constants, underflow-clamp under 11 consecutive slashes.
+
+### Milestone B — Multi-source cross-reference verdict (Loại 1b)
+
+- `report_leak` now fetches THREE sources per report inside `leader_fn`
+  (drop-in — no ABI change):
+  - `PRIMARY` = user-supplied suspect_url (up to 6 000 chars).
+  - `WAYBACK` = `https://web.archive.org/web/*/{suspect_url}` snapshot,
+    used to detect prior public disclosure.
+  - `GOOGLE` = search for the first revealed keyword, used as a second
+    prior-disclosure signal.
+- Failed corroborating fetches degrade to `null` — the primary source
+  failing still forces the verdict to `inconclusive`, but a corroborating
+  source failing only lowers confidence (rule (7)+(8) in the validator
+  principle).
+- New response fields: `sources_evaluated`, `sources_confirming`,
+  `cross_reference_notes`. Validator principle now agrees on
+  `sources_confirming ± 1` too, so a bogus cross-reference claim can't
+  ride through consensus.
+
+### Milestone C — Event log + notifications (Loại 4)
+
+- `events: DynArray[Event]` append-only log; every state transition emits
+  one event via `_emit(kind, nda_id, actor, meta)`.
+- 11 event kinds: `nda_created`, `nda_activated`, `nda_cancelled`,
+  `leak_reported`, `violation_confirmed`, `appeal_filed`,
+  `appeal_overturned`, `appeal_upheld`, `verdict_finalized`,
+  `nda_expired`, `withdraw`.
+- Views: `get_events_count()`, `get_events(from_seq, limit)` (paginated,
+  100/page cap), `get_events_for_nda(nda_id)`.
+- `meta_json` is a free-form JSON string so downstream consumers can
+  extend without a schema migration.
+- 3 new tests covering lifecycle ordering, per-NDA filter, and pagination
+  bounds. Full suite: 19 → 22 tests, all green.
+
+### Tests
+- Full contract test suite grew from 14 → 22 (all green).
+
+### Redeploy required
+`v0.2.18` (`0x10562A17…6F09`) does not have the new views or the event
+log. Redeploy `contracts/nda_sentinel.py` on studionet and update
+`NEXT_PUBLIC_CONTRACT_ADDRESS` before shipping the frontend build.
+
+---
+
 ## [0.2.18] — 2026-07-30 — Resubmission-review fixes + wallet UX overhaul
 
 ### Contract — `contracts/nda_sentinel.py`

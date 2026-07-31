@@ -8,7 +8,7 @@ distributes stakes based on the verdict, with a full appeal cycle.
 - **Live App**: <https://nda-sentinel.vercel.app>
 - **Class Name**: `NDASentinel`
 - **Contract file**: [`contracts/nda_sentinel.py`](contracts/nda_sentinel.py)
-- **Contract pragma**: `v0.2.18`
+- **Contract pragma**: `v0.2.19`
 - **Changelog**: [CHANGELOG.md](CHANGELOG.md)
 - **Security model**: [SECURITY.md](SECURITY.md)
 - **Architecture deep-dive**: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
