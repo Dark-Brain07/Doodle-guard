@@ -429,3 +429,177 @@ def test_new_stats_counters_track_appeal_outcomes(direct_vm, direct_deploy, dire
     # Overturn must roll back the confirmed-violation counter to zero.
     assert int(stats["total_violations_confirmed"]) == 0
     assert int(stats["total_value_slashed"]) == 0
+
+
+# ---------------------------------------------------------------------------
+# Reputation system tests (v0.2.19 — Milestone A).
+# Baseline is 1000; confirmed-report gain is +50, confirmed-violation loss
+# is -100. See REP_* constants in the contract for the source of truth.
+# ---------------------------------------------------------------------------
+
+
+REP_BASELINE = 1000
+
+
+def reputation(contract, account) -> dict:
+    return json.loads(contract.get_reputation(account))
+
+
+def test_reputation_baseline_before_any_activity(direct_vm, direct_deploy, direct_alice, direct_bob):
+    contract = deploy_active_nda(direct_vm, direct_deploy, direct_alice, direct_bob)
+    alice_rep = reputation(contract, direct_alice)
+    bob_rep = reputation(contract, direct_bob)
+    assert int(alice_rep["score"]) == REP_BASELINE
+    assert alice_rep["tier"] == "newcomer"
+    assert int(bob_rep["score"]) == REP_BASELINE
+    assert int(bob_rep["reports_submitted"]) == 0
+
+
+def test_reputation_reward_on_confirmed_report_and_penalty_on_violation(
+    direct_vm, direct_deploy, direct_alice, direct_bob,
+):
+    contract = deploy_active_nda(direct_vm, direct_deploy, direct_alice, direct_bob)
+    mock_verdict(direct_vm, "upheld")
+    report_party_a(direct_vm, contract, direct_bob)
+
+    reporter = reputation(contract, direct_bob)
+    violator = reputation(contract, direct_alice)
+
+    # Reporter earned +50 for a confirmed report.
+    assert int(reporter["score"]) == REP_BASELINE + 50
+    assert int(reporter["reports_submitted"]) == 1
+    assert int(reporter["reports_confirmed"]) == 1
+    # Violator took -100 for a confirmed violation.
+    assert int(violator["score"]) == REP_BASELINE - 100
+    assert violator["tier"] == "newcomer"  # 900 still >= 800 (flagged)
+    assert int(violator["violations_confirmed"]) == 1
+
+
+def test_reputation_rollback_and_penalty_on_overturn(
+    direct_vm, direct_deploy, direct_alice, direct_bob,
+):
+    contract = deploy_active_nda(direct_vm, direct_deploy, direct_alice, direct_bob)
+    mock_verdict(direct_vm, "overturned")
+    report_party_a(direct_vm, contract, direct_bob)
+    direct_vm.sender = direct_alice
+    direct_vm.value = APPEAL_FEE
+    contract.appeal(0, "Overturn evidence.")
+    direct_vm.value = 0
+
+    reporter = reputation(contract, direct_bob)
+    appellant = reputation(contract, direct_alice)
+
+    # Reporter: undo +50 gain from confirmation, then -75 for false report.
+    # Net delta from baseline: -75.
+    assert int(reporter["score"]) == REP_BASELINE - 75
+    assert int(reporter["false_reports"]) == 1
+    assert int(reporter["reports_confirmed"]) == 0  # counter rolled back
+    # Appellant proven innocent: +100 win, undo -100 violation. Net +100.
+    assert int(appellant["score"]) == REP_BASELINE + 100
+    assert appellant["tier"] == "trusted"  # >= 1050
+    assert int(appellant["appeals_won"]) == 1
+    assert int(appellant["violations_confirmed"]) == 0  # rolled back
+
+
+def test_reputation_tier_thresholds_via_thresholds_view(direct_vm, direct_deploy, direct_alice, direct_bob):
+    contract = deploy_active_nda(direct_vm, direct_deploy, direct_alice, direct_bob)
+    thresholds = json.loads(contract.get_reputation_thresholds())
+    assert int(thresholds["baseline"]) == REP_BASELINE
+    assert int(thresholds["verified_at"]) == 1200
+    assert int(thresholds["trusted_at"]) == 1050
+    assert int(thresholds["flagged_below"]) == 800
+
+
+def test_event_log_appended_across_full_lifecycle(direct_vm, direct_deploy, direct_alice, direct_bob):
+    """Every state transition of a full lifecycle (create → activate →
+    report → appeal → finalize) must append exactly one event, in order."""
+    contract = deploy_active_nda(direct_vm, direct_deploy, direct_alice, direct_bob)
+    # Two events so far: nda_created, nda_activated
+    assert int(contract.get_events_count()) == 2
+
+    mock_verdict(direct_vm, "upheld")
+    report_party_a(direct_vm, contract, direct_bob)
+    # leak_reported + violation_confirmed
+    assert int(contract.get_events_count()) == 4
+
+    direct_vm.sender = direct_alice
+    direct_vm.value = APPEAL_FEE
+    contract.appeal(0, "Test the appeal-filed and appeal-upheld emits.")
+    direct_vm.value = 0
+    # appeal_filed + appeal_upheld
+    assert int(contract.get_events_count()) == 6
+
+    direct_vm.sender = direct_bob
+    contract.claim_reporter_reward(0)
+    # verdict_finalized
+    assert int(contract.get_events_count()) == 7
+
+    events = json.loads(contract.get_events(0, 100))
+    kinds = [e["kind"] for e in events]
+    assert kinds == [
+        "nda_created",
+        "nda_activated",
+        "leak_reported",
+        "violation_confirmed",
+        "appeal_filed",
+        "appeal_upheld",
+        "verdict_finalized",
+    ]
+    # Meta parses cleanly and carries slash amount on violation_confirmed.
+    slash_event = events[3]
+    slash_meta = json.loads(slash_event["meta_json"])
+    assert int(slash_meta["slashed"]) == STAKE
+
+
+def test_events_by_nda_returns_only_that_nda_events(direct_vm, direct_deploy, direct_alice, direct_bob):
+    contract = deploy_active_nda(direct_vm, direct_deploy, direct_alice, direct_bob)
+    events = json.loads(contract.get_events_for_nda(0))
+    kinds = [e["kind"] for e in events]
+    assert "nda_created" in kinds
+    assert "nda_activated" in kinds
+
+
+def test_event_pagination_slice_bounds(direct_vm, direct_deploy, direct_alice, direct_bob):
+    contract = deploy_active_nda(direct_vm, direct_deploy, direct_alice, direct_bob)
+    # Only 2 events; asking for events past the tail returns [].
+    tail = json.loads(contract.get_events(10, 5))
+    assert tail == []
+    # First 1 event only.
+    slice1 = json.loads(contract.get_events(0, 1))
+    assert len(slice1) == 1
+    assert slice1[0]["kind"] == "nda_created"
+
+
+def test_reputation_never_underflows_below_zero(direct_vm, direct_deploy, direct_alice, direct_bob):
+    """Repeated hits on the same violator must clamp at 0, never wrap."""
+    contract = deploy_active_nda(direct_vm, direct_deploy, direct_alice, direct_bob)
+    mock_verdict(direct_vm, "upheld")
+
+    # One confirmed report drops alice by 100. 11 rounds would take her
+    # 100 points below zero on a naive u256 subtract, so ensure the clamp
+    # holds. We stop after the score reaches zero.
+    for _ in range(11):
+        # New NDA each loop — cheap, and avoids status-transition issues.
+        direct_vm.sender = direct_alice
+        direct_vm.value = STAKE
+        nda_id = contract.create_nda(
+            as_hex(direct_bob), SCOPE, CONTEXT,
+            int(START.timestamp()) + 30 * 24 * 60 * 60, keyword_hashes(),
+        )
+        direct_vm.sender = direct_bob
+        direct_vm.value = STAKE
+        contract.activate_nda(nda_id)
+        direct_vm.value = 0
+        direct_vm.sender = direct_bob
+        direct_vm.value = REPORT_FEE
+        try:
+            contract.report_leak(
+                int(nda_id), "https://example.com/leak", json.dumps([KEYWORDS[0]]), SALT,
+            )
+        except Exception:
+            pass
+        direct_vm.value = 0
+
+    alice_rep = reputation(contract, direct_alice)
+    assert int(alice_rep["score"]) == 0
+    assert alice_rep["tier"] == "flagged"
