@@ -51,7 +51,7 @@ the same intelligent contract.
   `get_reputation` / `get_reputation_thresholds`.
 - Tests: `tests/test_nda_sentinel.py` — five new tests including
   underflow-clamp and appeal-cycle rollback.
-- Live contract: `0xa39218800F583BB35B553a34ff479197Dc6Ca7DE` on
+- Live contract: `0x817422E7aF4D86d848Bf9BC13b9A9c333CF341dd` on
   studionet (redeploy at the v0.2.19 build).
 - Live app: `https://nda-sentinel.vercel.app` (reputation badge on NDA
   detail page + dashboard).
@@ -161,7 +161,7 @@ submission:
 
 - Repository: <https://github.com/phu1271997/nda-sentinel-genlayer>
 - Live app: <https://nda-sentinel.vercel.app>
-- Contract (studionet, v0.2.19): `0xa39218800F583BB35B553a34ff479197Dc6Ca7DE`
+- Contract (studionet, v0.2.19): `0x817422E7aF4D86d848Bf9BC13b9A9c333CF341dd`
 - Full changelog: `CHANGELOG.md`
 - Threat model + invariant proof: `SECURITY.md`
 - Full test suite (22 tests, all green): `tests/test_nda_sentinel.py`

@@ -1,19 +1,25 @@
 {
   "studionet": {
-    "NDASentinel": "0xa39218800F583BB35B553a34ff479197Dc6Ca7DE",
-    "deployed_at": "2026-07-30",
-    "version": "v0.2.18",
+    "NDASentinel": "0x817422E7aF4D86d848Bf9BC13b9A9c333CF341dd",
+    "deployed_at": "2026-07-31",
+    "version": "v0.2.19",
     "source": "contracts/nda_sentinel.py",
     "class": "NDASentinel",
     "rpc": "https://studio.genlayer.com/api",
-    "notes": "v0.2.18 redeploy: finalize_verdict path, get_nda_liabilities view, appeal_submitted reset on overturn, report_leak expiry gate, extended stats counters (total_appeals_overturned/upheld, total_report_fees_collected). Addresses the 2026-07-30 resubmission-review feedback in full."
+    "notes": "v0.2.19 — adds reputation system (Milestone A), multi-source cross-reference verdict with Wayback+Google corroboration (Milestone B), and append-only on-chain event log with 11 kinds (Milestone C). ABI additions: get_reputation, get_reputation_thresholds, get_events_count, get_events, get_events_for_nda. See CHANGELOG.md § [0.2.19]."
   },
   "studionet_previous": [
+    {
+      "NDASentinel": "0xa39218800F583BB35B553a34ff479197Dc6Ca7DE",
+      "deployed_at": "2026-07-30",
+      "version": "v0.2.18",
+      "notes": "Predecessor build. Superseded by v0.2.19 — missing reputation, multi-source cross-reference, and event log. Kept for provenance."
+    },
     {
       "NDASentinel": "0x10562A17a26D02A1591F49F3013D66e1bBCc6F09",
       "deployed_at": "2026-07-17",
       "version": "v0.2.17",
-      "notes": "Predecessor build. Superseded by v0.2.18 — missing finalize_verdict, get_nda_liabilities, appeal-replay reset, and expiry gate. Kept for provenance."
+      "notes": "Earlier resubmission build. Kept for provenance."
     },
     {
       "NDASentinel": "0x42969f64860D42194916a2E4e3A80509617FF2e0",

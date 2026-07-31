@@ -17,10 +17,11 @@ distributes stakes based on the verdict, with a full appeal cycle.
 
 | Network    | Address | Explorer |
 |------------|---------|----------|
-| studionet  | `0xa39218800F583BB35B553a34ff479197Dc6Ca7DE` (v0.2.18) | [Open in Studio](https://studio.genlayer.com/?import-contract=0xa39218800F583BB35B553a34ff479197Dc6Ca7DE) |
+| studionet  | `0x817422E7aF4D86d848Bf9BC13b9A9c333CF341dd` (v0.2.19) | [Open in Studio](https://studio.genlayer.com/?import-contract=0x817422E7aF4D86d848Bf9BC13b9A9c333CF341dd) |
 
-Prior addresses (superseded): `0x10562A17…6F09` (v0.2.17, 2026-07-17),
-`0x42969f64…F2e0` (2026-06-18, wiped by studionet reset). See
+Prior addresses (superseded): `0xa39218…a7DE` (v0.2.18, 2026-07-30),
+`0x10562A17…6F09` (v0.2.17, 2026-07-17), `0x42969f64…F2e0` (2026-06-18,
+wiped by studionet reset). See
 [`deployment/deployed_addresses.json`](deployment/deployed_addresses.json)
 for provenance.
 
