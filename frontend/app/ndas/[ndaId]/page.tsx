@@ -15,6 +15,7 @@ import {
   WalletNotReadyError,
 } from "@/lib/genlayer"
 import { ConnectWalletButton } from "@/components/ConnectWalletButton"
+import { ReputationBadge } from "@/components/ReputationBadge"
 import { StatusBadge } from "@/components/StatusBadge"
 import { VerdictPanel } from "@/components/VerdictPanel"
 import { Button } from "@/components/ui/button"
@@ -337,14 +338,20 @@ export default function NDADetailPage() {
       <div className="grid md:grid-cols-2 gap-6">
         <Card>
           <CardContent className="p-6 space-y-2">
-            <p className="text-sm font-semibold text-slate-500 uppercase">Party A (Creator)</p>
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <p className="text-sm font-semibold text-slate-500 uppercase">Party A (Creator)</p>
+              <ReputationBadge address={nda.party_a} />
+            </div>
             <p className="font-mono text-sm break-all">{nda.party_a}</p>
             <p className="text-sm">Stake: {formatGenAmount(nda.stake_a)} GEN</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-6 space-y-2">
-            <p className="text-sm font-semibold text-slate-500 uppercase">Party B (Counterparty)</p>
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <p className="text-sm font-semibold text-slate-500 uppercase">Party B (Counterparty)</p>
+              <ReputationBadge address={nda.party_b} />
+            </div>
             <p className="font-mono text-sm break-all">{nda.party_b}</p>
             <p className="text-sm">Stake: {formatGenAmount(nda.stake_b)} GEN</p>
           </CardContent>
