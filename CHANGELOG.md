@@ -9,6 +9,37 @@ resubmission-review feedback item(s) it addresses.
 
 ---
 
+## [0.2.19.1] — 2026-08-02 — Frontend UX: surface the Report Leak flow
+
+Contract ABI is unchanged; no redeploy required. Pure frontend fix in
+response to reviewer feedback: *"there is no section for checking if an
+NDA was breached, the dApp only allows creating an NDA"*. The
+report-leak feature already existed at `/ndas/[ndaId]/report` but every
+entry point to it was gated behind "be a party of an already-active
+NDA", which a first-time reviewer never satisfies.
+
+### Frontend
+- **New `/report` landing page** (`frontend/app/report/page.tsx`) —
+  primary discovery surface for the leak flow. Lets any visitor look up
+  an NDA by ID, or pick from their own active NDAs, and jump straight
+  into `ReportLeakForm`.
+- **Landing page redesign** (`frontend/app/page.tsx`) — adds a red
+  *Report a Leak* CTA next to *Create NDA*, a top-nav link, and a
+  5-step "Full protocol lifecycle" explainer (Create → Activate →
+  **Report Leak** → AI Jury Verdict → Appeal or Slash) that walks
+  reviewers through the entire end-to-end path.
+- **NDACard** (`frontend/components/NDACard.tsx`) — adds a secondary
+  *Report Leak* button on cards whose status is `active`, so the leak
+  path is reachable in one click from the dashboard.
+- **Dashboard** (`frontend/app/ndas/page.tsx`) — *Report Leak* button in
+  the header row and in the empty state.
+
+### Docs
+- README: added a *Where to find the leak-report flow* section with
+  three direct entry points.
+
+---
+
 ## [0.2.19] — 2026-07-31 — Reputation + multi-source cross-reference + event log
 
 Bundles three new capabilities. Each maps to one Portal milestone

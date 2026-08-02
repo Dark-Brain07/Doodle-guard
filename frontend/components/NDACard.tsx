@@ -3,6 +3,7 @@ import { StatusBadge } from "./StatusBadge"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import { formatDistanceToNow } from "date-fns"
+import { AlertTriangle } from "lucide-react"
 
 interface NDACardProps {
   id: string
@@ -45,10 +46,18 @@ export function NDACard({ id, counterparty, scope, status, stake, expiryTimestam
           </div>
         </div>
       </CardContent>
-      <CardFooter>
+      <CardFooter className="flex flex-col gap-2">
         <Link href={`/ndas/${id}`} className="w-full">
           <Button variant="outline" className="w-full">View Details</Button>
         </Link>
+        {status === "active" && !isExpired && (
+          <Link href={`/ndas/${id}/report`} className="w-full">
+            <Button variant="destructive" className="w-full">
+              <AlertTriangle className="w-4 h-4 mr-1" />
+              Report Leak
+            </Button>
+          </Link>
+        )}
       </CardFooter>
     </Card>
   )

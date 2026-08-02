@@ -134,6 +134,27 @@ payment-conservation lifecycle tests and a two-cycle appeal-replay test
 covering the review feedback. Requires `genlayer-test` in the Python
 environment.
 
+## Where to find the leak-report flow (for reviewers)
+
+Three entry points, all reachable without prior context:
+
+1. **Home page** → red *Report a Leak* button next to *Create NDA*.
+2. **Top nav** → *Report Leak* link on every page.
+3. **My NDAs dashboard** → *Report Leak* button in the header, and a
+   secondary button on every card whose status is `active`.
+
+All three land on **`/report`**, which either:
+
+- lets you look up any NDA by its numeric ID (from someone who shared it
+  with you), or
+- lists your own active NDAs with a one-click *Report Leak* button per
+  card.
+
+To submit a report you must be Party A or Party B of an *active* NDA and
+hold the vault password + salt file generated during creation. The
+report costs 1 GEN and triggers on-chain `web.render` + AI Jury
+consensus — the tx typically finalises in 30 s – 3 min on studionet.
+
 ## Video demo
 
 [//]: # (Add a demo video / GIF link here once recorded post-redeploy.)

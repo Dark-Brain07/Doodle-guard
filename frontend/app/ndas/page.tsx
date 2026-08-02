@@ -15,6 +15,7 @@ import { ConnectWalletButton } from "@/components/ConnectWalletButton"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import { NDA } from "@/lib/types"
+import { AlertTriangle } from "lucide-react"
 
 export default function NDAsDashboard() {
   const [ndas, setNdas] = useState<NDA[]>([])
@@ -64,12 +65,18 @@ export default function NDAsDashboard() {
     <div className="container mx-auto px-4 py-8">
       <div className="flex justify-between items-center mb-8">
         <h1 className="text-3xl font-bold">My NDAs</h1>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           <Button variant="outline" onClick={fetchNDAs} disabled={loading}>
             {loading ? "Refreshing…" : "Refresh"}
           </Button>
           <Link href="/ndas/new">
             <Button>Create NDA</Button>
+          </Link>
+          <Link href="/report">
+            <Button variant="destructive">
+              <AlertTriangle className="w-4 h-4 mr-1" />
+              Report Leak
+            </Button>
           </Link>
           <ConnectWalletButton />
         </div>
@@ -107,9 +114,17 @@ export default function NDAsDashboard() {
           <div className="text-center py-20 bg-slate-50 dark:bg-slate-900 rounded-xl">
             <h3 className="text-lg font-medium text-slate-900 dark:text-slate-100 mb-2">No NDAs found</h3>
             <p className="text-slate-500 mb-6">You don&apos;t have any active or pending NDAs yet.</p>
-            <Link href="/ndas/new">
-              <Button>Create your first NDA</Button>
-            </Link>
+            <div className="flex justify-center gap-2 flex-wrap">
+              <Link href="/ndas/new">
+                <Button>Create your first NDA</Button>
+              </Link>
+              <Link href="/report">
+                <Button variant="destructive">
+                  <AlertTriangle className="w-4 h-4 mr-1" />
+                  Report a Leak on someone else&apos;s NDA
+                </Button>
+              </Link>
+            </div>
           </div>
         )
       ) : (
