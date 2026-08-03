@@ -14,6 +14,7 @@ import {
   Coins,
 } from "lucide-react"
 import Link from "next/link"
+import { ConnectWalletButton } from "@/components/ConnectWalletButton"
 
 export default function Home() {
   return (
@@ -34,9 +35,12 @@ export default function Home() {
             <AlertTriangle className="w-4 h-4" />
             Report Leak
           </Link>
-          <Link href="/violations" className="text-sm font-medium hover:underline underline-offset-4">
+          <Link href="/violations" className="text-sm font-medium hover:underline underline-offset-4 hidden sm:block">
             Violations Log
           </Link>
+          <div className="ml-4">
+            <ConnectWalletButton />
+          </div>
         </nav>
       </header>
 
