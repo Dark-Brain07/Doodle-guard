@@ -1,6 +1,6 @@
 # Protocol Economics
 
-NDA Sentinel uses crypto-economic stakes to ensure honesty and disincentivize leaks or false reporting.
+DoodleGuard uses crypto-economic stakes to ensure honesty and disincentivize leaks or false reporting.
 
 ## Staking
 - Both parties must lock an agreed amount of GEN (the "stake") when the NDA is created and activated.

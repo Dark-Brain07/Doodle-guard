@@ -45,7 +45,7 @@ def as_hex(address) -> str:
 def deploy_active_nda(direct_vm, direct_deploy, party_a, party_b):
     warp(direct_vm, 0)
     direct_vm.sender = party_a
-    contract = direct_deploy("contracts/nda_sentinel.py")
+    contract = direct_deploy("contracts/doodle_guard.py")
     direct_vm.value = STAKE
     nda_id = contract.create_nda(
         as_hex(party_b), SCOPE, CONTEXT, int(START.timestamp()) + 30 * 24 * 60 * 60,
@@ -133,7 +133,7 @@ def test_create_activate_and_initial_state(direct_vm, direct_deploy, direct_alic
 def test_cancel_pending_requires_deadline(direct_vm, direct_deploy, direct_alice, direct_bob):
     warp(direct_vm, 0)
     direct_vm.sender = direct_alice
-    contract = direct_deploy("contracts/nda_sentinel.py")
+    contract = direct_deploy("contracts/doodle_guard.py")
     direct_vm.value = STAKE
     contract.create_nda(
         as_hex(direct_bob), SCOPE, CONTEXT,

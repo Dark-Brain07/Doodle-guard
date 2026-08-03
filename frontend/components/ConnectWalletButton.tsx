@@ -218,7 +218,7 @@ export function ConnectWalletButton() {
           <button
             className="w-full text-left px-2 py-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded flex items-center gap-2 text-blue-600"
             onClick={() => {
-              const pk = localStorage.getItem("nda-sentinel-account-pk");
+              const pk = localStorage.getItem("doodle-guard-account-pk");
               if (pk) {
                 navigator.clipboard.writeText(pk);
                 alert(`Burner Private Key:\n\n${pk}\n\n✅ Copied to clipboard!`);

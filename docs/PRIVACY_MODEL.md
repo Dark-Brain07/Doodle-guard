@@ -1,6 +1,6 @@
 # Privacy & Threat Model
 
-NDAs are fundamentally about PRIVATE information. NDA Sentinel ensures that we DO NOT put confidential text on-chain.
+NDAs are fundamentally about PRIVATE information. DoodleGuard ensures that we DO NOT put confidential text on-chain.
 
 ## Commit-Reveal Scheme
 

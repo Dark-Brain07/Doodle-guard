@@ -23,7 +23,7 @@ Major Feature — Trust-Weighted Reputation System for NDA parties
 
 **Summary**
 
-> NDA Sentinel now maintains an on-chain reputation score for every
+> DoodleGuard now maintains an on-chain reputation score for every
 > address that touches the protocol. Confirmed reports earn +50,
 > confirmed violations cost -100, appeal wins earn +100, and a false
 > report (a report the appellate jury overturns) costs -75 while
@@ -45,15 +45,15 @@ the same intelligent contract.
 
 **Evidence**
 
-- Contract diff: `contracts/nda_sentinel.py` — `REP_*` constants + storage
+- Contract diff: `contracts/doodle_guard.py` — `REP_*` constants + storage
   block + `_rep_get` / `_rep_apply` / `_tier` / `_addr_key` + rep-update
   hooks inside `report_leak` and `appeal`, and new views
   `get_reputation` / `get_reputation_thresholds`.
-- Tests: `tests/test_nda_sentinel.py` — five new tests including
+- Tests: `tests/test_doodle_guard.py` — five new tests including
   underflow-clamp and appeal-cycle rollback.
 - Live contract: `0x817422E7aF4D86d848Bf9BC13b9A9c333CF341dd` on
   studionet (redeploy at the v0.2.19 build).
-- Live app: `https://nda-sentinel.vercel.app` (reputation badge on NDA
+- Live app: `https://doodle-guard.vercel.app` (reputation badge on NDA
   detail page + dashboard).
 - Repo commit: (fill in after push)
 - CHANGELOG entry: `CHANGELOG.md` § [0.2.19] → "Milestone A".
@@ -98,7 +98,7 @@ latency and no privacy guarantee.
 
 **Evidence**
 
-- Contract diff: `contracts/nda_sentinel.py` — new `_safe_fetch` helper
+- Contract diff: `contracts/doodle_guard.py` — new `_safe_fetch` helper
   inside `leader_fn`; `wayback_url` + `google_url` derivation;
   extended prompt with three `EVIDENCE SOURCES` sections; updated
   validator principle rules (7)-(9).
@@ -143,10 +143,10 @@ a real live-feed narrative for every reviewer landing on the app.
 
 **Evidence**
 
-- Contract diff: `contracts/nda_sentinel.py` — `Event` dataclass;
+- Contract diff: `contracts/doodle_guard.py` — `Event` dataclass;
   `events` DynArray + `events_by_nda_json` index; `_emit()` helper;
   emit calls in every state-transition path; three new views.
-- Tests: `tests/test_nda_sentinel.py` — full-lifecycle event ordering,
+- Tests: `tests/test_doodle_guard.py` — full-lifecycle event ordering,
   per-NDA filter, pagination bounds.
 - Live app "Activity" tab on the NDA detail page.
 - Repo commit: (fill in after push).
@@ -159,10 +159,10 @@ a real live-feed narrative for every reviewer landing on the app.
 The three milestones share this evidence header. Paste it once per
 submission:
 
-- Repository: <https://github.com/phu1271997/nda-sentinel-genlayer>
-- Live app: <https://nda-sentinel.vercel.app>
+- Repository: <https://github.com/phu1271997/doodle-guard-genlayer>
+- Live app: <https://doodle-guard.vercel.app>
 - Contract (studionet, v0.2.19): `0x817422E7aF4D86d848Bf9BC13b9A9c333CF341dd`
 - Full changelog: `CHANGELOG.md`
 - Threat model + invariant proof: `SECURITY.md`
-- Full test suite (22 tests, all green): `tests/test_nda_sentinel.py`
+- Full test suite (22 tests, all green): `tests/test_doodle_guard.py`
 - Prior review response covered in `CHANGELOG.md § [0.2.18]`

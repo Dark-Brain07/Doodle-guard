@@ -1,6 +1,6 @@
 # Architecture
 
-NDA Sentinel is a full-stack dApp built entirely on GenLayer, leveraging its native non-deterministic execution capabilities to enforce legal agreements without human intermediaries.
+DoodleGuard is a full-stack dApp built entirely on GenLayer, leveraging its native non-deterministic execution capabilities to enforce legal agreements without human intermediaries.
 
 ## Smart Contract Layer (Intelligent Contract)
 - **Language:** Python (GenLayer SDK).

@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to NDA Sentinel are tracked here. The format loosely
+All notable changes to DoodleGuard are tracked here. The format loosely
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 [Semantic Versioning](https://semver.org/) for the contract pragma line.
 
@@ -102,14 +102,14 @@ submission per the Builder Points rubric (Loại 3c, 1b, 4).
 
 ### Redeploy required
 `v0.2.18` (`0x10562A17…6F09`) does not have the new views or the event
-log. Redeploy `contracts/nda_sentinel.py` on studionet and update
+log. Redeploy `contracts/doodle_guard.py` on studionet and update
 `NEXT_PUBLIC_CONTRACT_ADDRESS` before shipping the frontend build.
 
 ---
 
 ## [0.2.18] — 2026-07-30 — Resubmission-review fixes + wallet UX overhaul
 
-### Contract — `contracts/nda_sentinel.py`
+### Contract — `contracts/doodle_guard.py`
 
 #### Deadline protection completeness
 - **Reject leak reports on expired NDAs.** `report_leak` now hard-rejects
@@ -155,7 +155,7 @@ log. Redeploy `contracts/nda_sentinel.py` on studionet and update
   `total_appeals_upheld`, `total_report_fees_collected`.
 - Reason: "add payment-conservation tests" — review item.
 
-### Tests — `tests/test_nda_sentinel.py`
+### Tests — `tests/test_doodle_guard.py`
 
 - Added `test_report_rejected_after_nda_expiry`.
 - Added `test_non_reporter_party_can_finalize_after_window`.
@@ -211,4 +211,4 @@ log. Redeploy `contracts/nda_sentinel.py` on studionet and update
 
 ## [0.1.0] — Initial submission
 
-- First cut of NDA Sentinel dApp: contract + wizard + Vercel deploy.
+- First cut of DoodleGuard dApp: contract + wizard + Vercel deploy.

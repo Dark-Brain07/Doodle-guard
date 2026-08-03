@@ -8,9 +8,9 @@ import { studionet } from "genlayer-js/chains";
 import type { CalldataEncodable } from "genlayer-js/types";
 
 const FALLBACK_ADDRESS = "0x045A8206d69569aceB74F53D5d8c9Eb3A398AD4b";
-const ACCOUNT_KEY = "nda-sentinel-account-pk";
-const MODE_KEY = "nda-sentinel-wallet-mode";
-export const WALLET_CHANGED_EVENT = "nda-sentinel:wallet-changed";
+const ACCOUNT_KEY = "doodle-guard-account-pk";
+const MODE_KEY = "doodle-guard-wallet-mode";
+export const WALLET_CHANGED_EVENT = "doodle-guard:wallet-changed";
 
 // studionet.id = 61999 (0xF1EF). Read from SDK per R23 so it tracks upstream.
 export const STUDIONET_CHAIN_ID = studionet.id;
@@ -191,7 +191,7 @@ export async function connectInjectedWallet(detail?: EIP6963ProviderDetail): Pro
   saveMode("metamask");
   
   if (detail && typeof window !== "undefined") {
-    window.localStorage.setItem("nda-sentinel-provider-uuid", detail.info.uuid);
+    window.localStorage.setItem("doodle-guard-provider-uuid", detail.info.uuid);
   }
 
   emitWalletChanged();
@@ -227,7 +227,7 @@ export function disconnectWallet(): void {
   walletMode = "burner";
   saveMode("burner");
   if (typeof window !== "undefined") {
-    window.localStorage.removeItem("nda-sentinel-provider-uuid");
+    window.localStorage.removeItem("doodle-guard-provider-uuid");
   }
   emitWalletChanged();
 }
@@ -241,7 +241,7 @@ export async function restoreWalletSession(): Promise<void> {
   const savedMode = window.localStorage.getItem(MODE_KEY);
   if (savedMode !== "metamask") return;
   try {
-    const uuid = window.localStorage.getItem("nda-sentinel-provider-uuid");
+    const uuid = window.localStorage.getItem("doodle-guard-provider-uuid");
     let eth = getInjectedEthereum();
     
     if (uuid && discoveredProviders.length > 0) {
@@ -318,7 +318,7 @@ export function resetLocalAccount(): void {
 export async function ensureCorrectChainBeforeWrite(): Promise<void> {
   if (walletMode !== "metamask") return;
   try {
-    const uuid = typeof window !== "undefined" ? window.localStorage.getItem("nda-sentinel-provider-uuid") : null;
+    const uuid = typeof window !== "undefined" ? window.localStorage.getItem("doodle-guard-provider-uuid") : null;
     let eth = getInjectedEthereum();
     if (uuid) {
       const match = discoveredProviders.find(p => p.info.uuid === uuid);

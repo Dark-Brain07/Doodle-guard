@@ -100,7 +100,7 @@ current version (**v0.2.18** — 2026-07-30):
 1. Open <https://studio.genlayer.com/contracts>.
 2. **Settings → Reset Storage → Confirm** (per the deploy cheatsheet).
 3. Hard refresh (Cmd + Shift + R).
-4. New Contract → paste `contracts/nda_sentinel.py`.
+4. New Contract → paste `contracts/doodle_guard.py`.
 5. Click Deploy (no constructor args).
 6. **Click the finalized transaction and verify `Result: SUCCESS`** — a
    `Status: FINALIZED` on its own is not enough.
@@ -129,7 +129,7 @@ current version (**v0.2.18** — 2026-07-30):
 gltest
 ```
 
-Runs the 14 tests in `tests/test_nda_sentinel.py`, including four
+Runs the 14 tests in `tests/test_doodle_guard.py`, including four
 payment-conservation lifecycle tests and a two-cycle appeal-replay test
 covering the review feedback. Requires `genlayer-test` in the Python
 environment.

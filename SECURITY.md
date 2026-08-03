@@ -1,7 +1,7 @@
-# Security Model — NDA Sentinel
+# Security Model — DoodleGuard
 
 This document describes the trust assumptions, threat model, and audit
-checklist for NDA Sentinel v0.2.18. Anything not covered here is
+checklist for DoodleGuard v0.2.18. Anything not covered here is
 out-of-scope for the current audit and left as follow-up.
 
 ## 1. Trust boundary
@@ -120,7 +120,7 @@ allowed. See §3.4 of `gen-rules/00-read-me.md` for the design rationale.
       `ensureCorrectChainBeforeWrite()` and records the returned tx hash.
 - [ ] `frontend/lib/genlayer.ts` contains **zero** private keys / never
       reads any `NEXT_PUBLIC_*_PRIVATE_KEY`-style env var.
-- [ ] `contracts/nda_sentinel.py` line 1 is a version pragma; line 2 is a
+- [ ] `contracts/doodle_guard.py` line 1 is a version pragma; line 2 is a
       `Depends` hash; `from genlayer import *` is the only genlayer import.
 - [ ] Every `gl.nondet.*` call is nested inside `gl.eq_principle.*` or
       `gl.vm.run_nondet*`.
