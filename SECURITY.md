@@ -94,7 +94,7 @@ numeric tolerances on slashing-critical scores:
 - `matched_keywords_count` — within ±1.
 
 Wording differences in `reasoning` and `evidence_quote` are explicitly
-allowed. See §3.4 of `gen-rules/00-read-me.md` for the design rationale.
+allowed.
 
 ## 6. Known limitations / follow-ups
 
