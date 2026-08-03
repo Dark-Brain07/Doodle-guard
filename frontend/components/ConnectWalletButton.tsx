@@ -136,7 +136,7 @@ export function ConnectWalletButton() {
           <div className="flex items-center gap-2 text-xs text-slate-500">
             <span>Mode:</span>
             <span className={`font-semibold ${isMM ? "text-emerald-600" : "text-amber-600"}`}>
-              {isMM ? "MetaMask (studionet)" : "Local burner (demo)"}
+              {isMM ? "MetaMask (studionet)" : "Local burner"}
             </span>
           </div>
           <div className="font-mono text-xs break-all border rounded p-2 bg-slate-50 dark:bg-slate-800">
@@ -228,7 +228,7 @@ export function ConnectWalletButton() {
             }}
           >
             <Key className="w-3 h-3" />
-            Copy Burner PK
+            Copy Burner Private Key
           </button>
           {mode === "burner" && (
             <div className="w-full text-left px-2 py-2 flex items-center justify-between text-xs text-slate-500 border-t border-slate-200 dark:border-slate-800 mt-1">
