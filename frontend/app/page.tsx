@@ -18,10 +18,10 @@ import Link from "next/link"
 export default function Home() {
   return (
     <div className="flex flex-col min-h-screen">
-      <header className="flex h-16 items-center px-6 border-b bg-white dark:bg-[#13161D]">
+      <header className="flex h-16 items-center px-6 border-b bg-card">
         <div className="flex items-center gap-2 font-bold text-xl">
           <Shield className="h-6 w-6 text-purple-600" />
-          <span>NDA Sentinel</span>
+          <span>DoodleGuard</span>
         </div>
         <nav className="ml-auto flex gap-4 sm:gap-6 items-center">
           <Link href="/ndas" className="text-sm font-medium hover:underline underline-offset-4">
@@ -138,7 +138,7 @@ export default function Home() {
                   className={`rounded-lg border p-4 flex flex-col gap-2 ${
                     step.highlight
                       ? "border-rose-300 dark:border-rose-800 bg-rose-50/60 dark:bg-rose-950/20"
-                      : "bg-white dark:bg-[#13161D]"
+                      : "bg-card"
                   }`}
                 >
                   <div className="flex items-center gap-2 text-sm font-semibold">
@@ -255,7 +255,7 @@ export default function Home() {
 
       <footer className="flex flex-col gap-2 sm:flex-row py-6 w-full shrink-0 items-center px-4 md:px-6 border-t">
         <p className="text-xs text-slate-500 dark:text-slate-400">
-          © 2026 NDA Sentinel. Powered by GenLayer.
+          © 2026 DoodleGuard. Powered by GenLayer.
         </p>
         <nav className="sm:ml-auto flex gap-4 sm:gap-6">
           <Link className="text-xs hover:underline underline-offset-4" href="#">

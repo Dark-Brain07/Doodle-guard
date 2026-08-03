@@ -42,7 +42,7 @@ export default function GlobalError({
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4 bg-[#FBFBFD] dark:bg-[#0B0D12] text-slate-900 dark:text-slate-100">
+    <div className="min-h-screen flex items-center justify-center px-4 bg-background text-foreground">
       <div className="max-w-lg w-full space-y-4 text-center">
         <div className="mx-auto w-14 h-14 rounded-full border-2 border-rose-500/60 flex items-center justify-center">
           <span className="text-rose-500 text-2xl font-bold">!</span>

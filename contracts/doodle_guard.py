@@ -101,7 +101,7 @@ class Event:
     timestamp: u256
     meta_json: str
 
-class NDASentinel(gl.Contract):
+class DoodleGuard(gl.Contract):
     ndas: DynArray[NDA]
     nda_index_by_id: TreeMap[u256, u256]
     nda_keyword_hashes_json: TreeMap[u256, str]   # nda_id -> JSON list of hashes

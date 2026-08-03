@@ -7,7 +7,7 @@ import {
 import { studionet } from "genlayer-js/chains";
 import type { CalldataEncodable } from "genlayer-js/types";
 
-const FALLBACK_ADDRESS = "0x817422E7aF4D86d848Bf9BC13b9A9c333CF341dd";
+const FALLBACK_ADDRESS = "0x045A8206d69569aceB74F53D5d8c9Eb3A398AD4b";
 const ACCOUNT_KEY = "nda-sentinel-account-pk";
 const MODE_KEY = "nda-sentinel-wallet-mode";
 export const WALLET_CHANGED_EVENT = "nda-sentinel:wallet-changed";
@@ -99,13 +99,38 @@ export function isMetaMaskAvailable(): boolean {
   return getInjectedEthereum() !== null;
 }
 
+export interface EIP6963ProviderInfo {
+  uuid: string;
+  name: string;
+  icon: string;
+  rdns: string;
+}
+
+export interface EIP6963ProviderDetail {
+  info: EIP6963ProviderInfo;
+  provider: InjectedEthereum;
+}
+
+export let discoveredProviders: EIP6963ProviderDetail[] = [];
+
+if (typeof window !== "undefined") {
+  window.addEventListener("eip6963:announceProvider", (event: any) => {
+    const detail = event.detail as EIP6963ProviderDetail;
+    if (!discoveredProviders.some(p => p.info.uuid === detail.info.uuid)) {
+      discoveredProviders.push(detail);
+      window.dispatchEvent(new Event("eip6963:providers-updated"));
+    }
+  });
+  window.dispatchEvent(new Event("eip6963:requestProvider"));
+}
+
 /**
  * Ensure the injected wallet is on studionet. If the chain is not registered
  * yet in MetaMask, add it first (per R23). Uses parameters read from
  * `genlayer-js/chains` rather than hard-coded literals.
  */
-export async function ensureStudionetChain(): Promise<void> {
-  const eth = getInjectedEthereum();
+export async function ensureStudionetChain(customEth?: InjectedEthereum): Promise<void> {
+  const eth = customEth || getInjectedEthereum();
   if (!eth) throw new Error("No injected wallet detected");
   try {
     await eth.request({
@@ -114,7 +139,6 @@ export async function ensureStudionetChain(): Promise<void> {
     });
   } catch (err) {
     const anyErr = err as { code?: number; message?: string };
-    // 4902: chain unknown; -32603: fallback in some MM builds.
     if (anyErr?.code === 4902 || anyErr?.code === -32603) {
       await eth.request({
         method: "wallet_addEthereumChain",
@@ -134,14 +158,25 @@ export async function ensureStudionetChain(): Promise<void> {
   }
 }
 
-export async function connectMetaMask(): Promise<`0x${string}`> {
-  const eth = getInjectedEthereum();
+export async function connectInjectedWallet(detail?: EIP6963ProviderDetail): Promise<`0x${string}`> {
+  const eth = detail ? detail.provider : getInjectedEthereum();
   if (!eth) {
-    throw new Error(
-      "MetaMask (or a compatible EIP-1193 wallet) is not installed"
-    );
+    throw new Error("No compatible EVM wallet found");
   }
-  await ensureStudionetChain();
+
+  if (detail && typeof window !== "undefined") {
+    try {
+      Object.defineProperty(window, 'ethereum', {
+        value: detail.provider,
+        configurable: true,
+        writable: true
+      });
+    } catch (e) {
+      console.warn("Could not override window.ethereum", e);
+    }
+  }
+
+  await ensureStudionetChain(eth);
   const accounts = (await eth.request({
     method: "eth_requestAccounts",
   })) as string[];
@@ -149,40 +184,51 @@ export async function connectMetaMask(): Promise<`0x${string}`> {
     throw new Error("No accounts returned from wallet");
   }
   const addr = accounts[0] as `0x${string}`;
-  // genlayer-js accepts a bare address string as `account` (per R22): the
-  // client then routes transaction signing through the injected wallet
-  // rather than any key in the bundle.
+  
   client = createClient({ chain: studionet, account: addr });
   activeAddress = addr;
-  walletMode = "metamask";
+  walletMode = "metamask"; // Keep internal state string
   saveMode("metamask");
+  
+  if (detail && typeof window !== "undefined") {
+    window.localStorage.setItem("nda-sentinel-provider-uuid", detail.info.uuid);
+  }
+
   emitWalletChanged();
 
-  // React to wallet account/chain changes without a full reload.
-  const eth2 = getInjectedEthereum();
-  eth2?.on?.("accountsChanged", (accts: unknown) => {
+  eth?.on?.("accountsChanged", (accts: unknown) => {
     const list = accts as string[];
     if (!list || list.length === 0) {
-      switchToBurner();
+      disconnectWallet();
     } else if ((list[0] as `0x${string}`) !== activeAddress) {
       activeAddress = list[0] as `0x${string}`;
       client = createClient({ chain: studionet, account: activeAddress });
       emitWalletChanged();
     }
   });
-  eth2?.on?.("chainChanged", () => {
-    // Best-effort: re-enforce studionet on next write via ensureStudionetChain.
+  eth?.on?.("chainChanged", () => {
     emitWalletChanged();
   });
 
   return addr;
 }
 
+export async function connectMetaMask(): Promise<`0x${string}`> {
+  return connectInjectedWallet();
+}
+
 export function switchToBurner(): void {
+  disconnectWallet();
+}
+
+export function disconnectWallet(): void {
   client = createClient({ chain: studionet, account: burnerAccount });
   activeAddress = burnerAccount.address as `0x${string}`;
   walletMode = "burner";
   saveMode("burner");
+  if (typeof window !== "undefined") {
+    window.localStorage.removeItem("nda-sentinel-provider-uuid");
+  }
   emitWalletChanged();
 }
 
@@ -195,7 +241,25 @@ export async function restoreWalletSession(): Promise<void> {
   const savedMode = window.localStorage.getItem(MODE_KEY);
   if (savedMode !== "metamask") return;
   try {
-    const eth = getInjectedEthereum();
+    const uuid = window.localStorage.getItem("nda-sentinel-provider-uuid");
+    let eth = getInjectedEthereum();
+    
+    if (uuid && discoveredProviders.length > 0) {
+      const match = discoveredProviders.find(p => p.info.uuid === uuid);
+      if (match) {
+        eth = match.provider;
+        try {
+          Object.defineProperty(window, 'ethereum', {
+            value: eth,
+            configurable: true,
+            writable: true
+          });
+        } catch (e) {
+          console.warn("Could not override window.ethereum on restore", e);
+        }
+      }
+    }
+    
     if (!eth) return;
     const accounts = (await eth.request({
       method: "eth_accounts",
@@ -208,7 +272,7 @@ export async function restoreWalletSession(): Promise<void> {
       emitWalletChanged();
     }
   } catch {
-    /* silent — remain on burner */
+    /* silent */
   }
 }
 
@@ -254,7 +318,13 @@ export function resetLocalAccount(): void {
 export async function ensureCorrectChainBeforeWrite(): Promise<void> {
   if (walletMode !== "metamask") return;
   try {
-    await ensureStudionetChain();
+    const uuid = typeof window !== "undefined" ? window.localStorage.getItem("nda-sentinel-provider-uuid") : null;
+    let eth = getInjectedEthereum();
+    if (uuid) {
+      const match = discoveredProviders.find(p => p.info.uuid === uuid);
+      if (match) eth = match.provider;
+    }
+    if (eth) await ensureStudionetChain(eth);
   } catch {
     /* let the write attempt surface the real error */
   }
@@ -275,12 +345,7 @@ export class WalletNotReadyError extends Error {
  */
 export async function assertWritable(): Promise<void> {
   await walletReady;
-  if (walletMode === "burner") {
-    throw new WalletNotReadyError(
-      "Connect MetaMask (funded on studionet) before submitting. " +
-        "The local burner has zero GEN and cannot pay stakes."
-    );
-  }
+  // Burner check removed so user can use a funded burner wallet
 }
 
 export function explorerTxUrl(hash: string): string {

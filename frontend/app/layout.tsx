@@ -1,13 +1,14 @@
 import type { Metadata } from "next";
-import { Inter, Geist_Mono } from "next/font/google";
+import { VT323, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { SnapsBypassInitializer } from "@/components/SnapsBypassInitializer";
 import { ContractInfoFooter } from "@/components/ContractInfoFooter";
 
-const inter = Inter({
+const retroFont = VT323({
   variable: "--font-inter",
+  weight: "400",
   subsets: ["latin"],
 });
 
@@ -17,7 +18,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "NDA Sentinel",
+  title: "DoodleGuard",
   description: "NDA enforcement at the speed of consensus. AI Jury detects leaks.",
 };
 
@@ -29,7 +30,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body
-        className={`${inter.variable} ${geistMono.variable} antialiased bg-[#FBFBFD] dark:bg-[#0B0D12] text-slate-900 dark:text-slate-100 font-sans`}
+        className={`${retroFont.variable} ${geistMono.variable} antialiased bg-background text-foreground font-sans`}
       >
         <ThemeProvider
           attribute="class"

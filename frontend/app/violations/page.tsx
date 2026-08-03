@@ -72,7 +72,7 @@ export default function ViolationsLogPage() {
 
       <Card>
         <CardContent className="p-8 text-center text-slate-500">
-          <p>For privacy reasons, the full public ledger of confirmed violations is available strictly via on-chain inspection of the NDA Sentinel smart contract.</p>
+          <p>For privacy reasons, the full public ledger of confirmed violations is available strictly via on-chain inspection of the DoodleGuard smart contract.</p>
         </CardContent>
       </Card>
     </div>
