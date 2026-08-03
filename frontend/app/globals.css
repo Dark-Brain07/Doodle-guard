@@ -49,16 +49,16 @@
 }
 
 :root {
-  --background: oklch(0.8 0 0); /* #c0c0c0 */
-  --foreground: oklch(0 0 0); /* black */
-  --card: oklch(0.8 0 0); /* #c0c0c0 */
-  --card-foreground: oklch(0 0 0);
-  --popover: oklch(0.8 0 0);
-  --popover-foreground: oklch(0 0 0);
+  --background: oklch(0.18 0 0); /* JetBrains dark gray / Jet black */
+  --foreground: oklch(0.9 0 0); /* Light text */
+  --card: oklch(0.2 0 0); /* Darker card */
+  --card-foreground: oklch(0.9 0 0);
+  --popover: oklch(0.2 0 0);
+  --popover-foreground: oklch(0.9 0 0);
   --primary: oklch(0.3 0.1 260); /* Navy Blue */
   --primary-foreground: oklch(1 0 0); /* White text */
-  --secondary: oklch(0.8 0 0); 
-  --secondary-foreground: oklch(0 0 0);
+  --secondary: oklch(0.25 0 0); 
+  --secondary-foreground: oklch(0.9 0 0);
   --muted: oklch(0.9 0 0); /* Light gray */
   --muted-foreground: oklch(0.3 0 0);
   --accent: oklch(0.3 0.1 260); /* Navy Blue */
