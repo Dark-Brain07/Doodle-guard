@@ -8,11 +8,11 @@ export function ContractInfoFooter() {
   const explorerUrl = `https://studio.genlayer.com/?import-contract=${address}`;
 
   return (
-    <footer className="w-full py-4 border-t bg-slate-50 dark:bg-slate-900/50 mt-auto">
+    <footer className="w-full py-4 border-t bg-background mt-auto">
       <div className="container mx-auto px-4 flex flex-col sm:flex-row justify-between items-center text-xs text-slate-500 dark:text-slate-400 gap-2">
         <div className="flex items-center gap-1.5 font-medium">
           <Shield className="h-4 w-4 text-purple-600 dark:text-purple-400" />
-          <span>NDA Sentinel Protocol</span>
+          <span>DoodleGuard Protocol</span>
         </div>
         <div className="flex gap-4 items-center">
           {address ? (
@@ -33,7 +33,7 @@ export function ContractInfoFooter() {
           <span>Network: <strong className="text-slate-700 dark:text-slate-300">studionet</strong></span>
         </div>
         <div>
-          © 2026 NDA Sentinel. Powered by GenLayer.
+          © 2026 DoodleGuard. Powered by GenLayer.
         </div>
       </div>
     </footer>

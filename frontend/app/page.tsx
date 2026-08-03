@@ -228,8 +228,7 @@ export default function Home() {
             </div>
           </div>
         </section>
-
-        <section className="w-full py-12 md:py-24 lg:py-32 bg-slate-50 dark:bg-slate-900/50">
+        <section className="w-full py-12 md:py-24 lg:py-32 bg-background border-t">
           <div className="container px-4 md:px-6 mx-auto text-center space-y-12">
             <h2 className="text-3xl font-bold tracking-tighter">Built for Modern Businesses</h2>
             <div className="grid gap-8 sm:grid-cols-3">
@@ -252,20 +251,6 @@ export default function Home() {
           </div>
         </section>
       </main>
-
-      <footer className="flex flex-col gap-2 sm:flex-row py-6 w-full shrink-0 items-center px-4 md:px-6 border-t">
-        <p className="text-xs text-slate-500 dark:text-slate-400">
-          © 2026 DoodleGuard. Powered by GenLayer.
-        </p>
-        <nav className="sm:ml-auto flex gap-4 sm:gap-6">
-          <Link className="text-xs hover:underline underline-offset-4" href="#">
-            Contract: {process.env.NEXT_PUBLIC_CONTRACT_ADDRESS?.substring(0, 8)}...
-          </Link>
-          <Link className="text-xs hover:underline underline-offset-4" href="#">
-            Privacy Disclaimer
-          </Link>
-        </nav>
-      </footer>
     </div>
   )
 }
