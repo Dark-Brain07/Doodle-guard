@@ -1,13 +1,13 @@
-# NDA Sentinel
+# DoodleGuard
 
 Trustless NDA enforcement dApp on GenLayer. An AI Jury reads the
 suspect URL directly on-chain and reaches consensus on whether protected
 information was disclosed; the smart contract atomically slashes and
 distributes stakes based on the verdict, with a full appeal cycle.
 
-- **Live App**: <https://nda-sentinel.vercel.app>
-- **Class Name**: `NDASentinel`
-- **Contract file**: [`contracts/nda_sentinel.py`](contracts/nda_sentinel.py)
+- **Live App**: <https://doodle-guard.vercel.app>
+- **Class Name**: `DoodleGuard`
+- **Contract file**: [`contracts/doodle_guard.py`](contracts/doodle_guard.py)
 - **Contract pragma**: `v0.2.19`
 - **Changelog**: [CHANGELOG.md](CHANGELOG.md)
 - **Security model**: [SECURITY.md](SECURITY.md)
@@ -17,9 +17,9 @@ distributes stakes based on the verdict, with a full appeal cycle.
 
 | Network    | Address | Explorer |
 |------------|---------|----------|
-| studionet  | `0x817422E7aF4D86d848Bf9BC13b9A9c333CF341dd` (v0.2.19) | [Open in Studio](https://studio.genlayer.com/?import-contract=0x817422E7aF4D86d848Bf9BC13b9A9c333CF341dd) |
+| studionet  | `0x045A8206d69569aceB74F53D5d8c9Eb3A398AD4b` (v0.2.19) | [Open in Studio](https://studio.genlayer.com/?import-contract=0x045A8206d69569aceB74F53D5d8c9Eb3A398AD4b) |
 
-Prior addresses (superseded): `0xa39218…a7DE` (v0.2.18, 2026-07-30),
+Prior addresses (superseded): `0x817422E7...41dd`, `0xa39218…a7DE` (v0.2.18, 2026-07-30),
 `0x10562A17…6F09` (v0.2.17, 2026-07-17), `0x42969f64…F2e0` (2026-06-18,
 wiped by studionet reset). See
 [`deployment/deployed_addresses.json`](deployment/deployed_addresses.json)
@@ -28,7 +28,7 @@ for provenance.
 ## Why GenLayer
 
 Traditional NDAs cost $200k – $2M and take 18–36 months to enforce.
-NDA Sentinel replaces that with:
+DoodleGuard replaces that with:
 
 - **On-chain suspect-URL fetching** (`gl.nondet.web.render`) — no oracle
   required.
@@ -49,7 +49,7 @@ this is the "GenLayer fit" test in the Builders rubric.
      (2) Stake GEN into escrow
            |
   +-------------------+        (4) Validators independently
-  | NDA Sentinel      | ------ fetch suspect_url via
+  | DoodleGuard       | ------ fetch suspect_url via
   | (studionet)       |        gl.nondet.web.render
   |                   | <----- get their own copy of the page
   +-------------------+
