@@ -84,36 +84,36 @@
 }
 
 .dark {
-  --background: oklch(0.2 0 0); /* Dark gray */
-  --foreground: oklch(0.8 0 0); /* Light gray */
+  --background: oklch(0.18 0 0); /* JetBrains jet black */
+  --foreground: oklch(0.9 0 0);
   --card: oklch(0.2 0 0);
-  --card-foreground: oklch(0.8 0 0);
+  --card-foreground: oklch(0.9 0 0);
   --popover: oklch(0.2 0 0);
-  --popover-foreground: oklch(0.8 0 0);
+  --popover-foreground: oklch(0.9 0 0);
   --primary: oklch(0.3 0.1 260);
   --primary-foreground: oklch(1 0 0);
-  --secondary: oklch(0.3 0 0);
-  --secondary-foreground: oklch(0.8 0 0);
-  --muted: oklch(0.3 0 0);
+  --secondary: oklch(0.25 0 0);
+  --secondary-foreground: oklch(0.9 0 0);
+  --muted: oklch(0.25 0 0);
   --muted-foreground: oklch(0.6 0 0);
   --accent: oklch(0.3 0.1 260);
   --accent-foreground: oklch(1 0 0);
   --destructive: oklch(0.5 0.2 30);
-  --border: oklch(0.4 0 0); 
-  --input: oklch(0.4 0 0);
+  --border: oklch(0.3 0 0); 
+  --input: oklch(0.3 0 0);
   --ring: oklch(0.8 0 0);
   --chart-1: oklch(0.3 0.1 260);
   --chart-2: oklch(0.5 0.2 30);
   --chart-3: oklch(0.4 0.1 140);
   --chart-4: oklch(0.8 0.1 90);
   --chart-5: oklch(0.5 0 0);
-  --sidebar: oklch(0.2 0 0);
-  --sidebar-foreground: oklch(0.8 0 0);
+  --sidebar: oklch(0.18 0 0);
+  --sidebar-foreground: oklch(0.9 0 0);
   --sidebar-primary: oklch(0.3 0.1 260);
   --sidebar-primary-foreground: oklch(1 0 0);
-  --sidebar-accent: oklch(0.3 0 0);
-  --sidebar-accent-foreground: oklch(0.8 0 0);
-  --sidebar-border: oklch(0.4 0 0);
+  --sidebar-accent: oklch(0.25 0 0);
+  --sidebar-accent-foreground: oklch(0.9 0 0);
+  --sidebar-border: oklch(0.3 0 0);
   --sidebar-ring: oklch(0.8 0 0);
 }
 
@@ -128,14 +128,14 @@
     @apply font-sans;
   }
   
-  /* Retro Windows 95 inset/outset borders */
+  /* Retro Terminal / JetBrains flat UI overrides */
   button, .card, [role="dialog"] {
-    @apply bg-[#c0c0c0] text-black border-2 border-solid border-t-white border-l-white border-r-[#808080] border-b-[#808080] dark:bg-[#333] dark:text-[#ccc] dark:border-t-[#555] dark:border-l-[#555] dark:border-r-black dark:border-b-black transition-none shadow-none hover:translate-y-0;
+    @apply bg-card text-card-foreground border-2 border-solid border-border transition-none shadow-none;
   }
   button:active {
-    @apply border-t-[#808080] border-l-[#808080] border-r-white border-b-white dark:border-t-black dark:border-l-black dark:border-r-[#555] dark:border-b-[#555];
+    @apply border-border opacity-80;
   }
   input, textarea, select {
-    @apply bg-white text-black border-2 border-solid border-t-[#808080] border-l-[#808080] border-r-white border-b-white dark:bg-black dark:text-[#00ff00] dark:border-t-black dark:border-l-black dark:border-r-[#555] dark:border-b-[#555] shadow-none;
+    @apply bg-background text-foreground border-2 border-solid border-border shadow-none focus-visible:border-primary;
   }
 }
