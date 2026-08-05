@@ -112,6 +112,7 @@ class DoodleGuard(gl.Contract):
     appeal_by_nda: TreeMap[u256, u256]            # nda_id -> appeal index in appeals
     
     withdrawable: TreeMap[Address, u256]
+    withdrawn_from_nda: TreeMap[u256, u256]        # nda_id -> total withdrawn/refunded
     escrowed_reporter_reward: TreeMap[u256, u256]  # nda_id -> amount escrowed
     escrowed_compensation: TreeMap[u256, u256]     # nda_id -> non-violator share
     escrowed_treasury_fee: TreeMap[u256, u256]     # nda_id -> protocol share
@@ -368,6 +369,7 @@ class DoodleGuard(gl.Contract):
         nda.status = "cancelled"
         refund = int(nda.stake_a)
         self.withdrawable[nda.party_a] = u256(int(self.withdrawable.get(nda.party_a, u256(0))) + refund)
+        self.withdrawn_from_nda[nda_id] = u256(int(self.withdrawn_from_nda.get(nda_id, u256(0))) + refund)
         nda.stake_a = u256(0)
         self.ndas[idx] = nda
         self._emit(EVENT_NDA_CANCELLED, nda_id, nda.party_a, {"refund": str(refund)})
@@ -446,16 +448,16 @@ class DoodleGuard(gl.Contract):
             f"{search_probe.replace(' ', '+')[:120]}"
         )
 
-        def _safe_fetch(url: str, max_chars: int) -> dict:
-            try:
-                body = gl.nondet.web.render(url, mode="text")
-                if len(body) > max_chars:
-                    body = body[:max_chars]
-                return {"url": url, "content": body, "error": None}
-            except Exception as e:
-                return {"url": url, "content": "", "error": str(e)[:200]}
-
         def leader_fn():
+            def _safe_fetch(url: str, max_chars: int) -> dict:
+                try:
+                    body = gl.nondet.web.render(url, mode="text")
+                    if len(body) > max_chars:
+                        body = body[:max_chars]
+                    return {"url": url, "content": body, "error": None}
+                except Exception as e:
+                    return {"url": url, "content": "", "error": str(e)[:200]}
+
             primary = _safe_fetch(suspect_url, 6000)
             if primary["error"] is not None:
                 # If the primary source is unreachable there is nothing to
@@ -513,7 +515,7 @@ The reporter has cryptographically proven knowledge of these protected keywords/
 1. CONTENT MATCH on the PRIMARY source (40 %): does it actually disclose the SUBSTANCE of a protected keyword?
 2. SPECIFICITY (15 %): is the disclosed info specific enough to be a real violation?
 3. PRIOR PUBLIC DISCLOSURE (20 %): use WAYBACK + GOOGLE to check whether this information was ALREADY publicly known BEFORE {created_at_local}. If either corroborates prior public knowledge, set prior_disclosure_found = true.
-4. ATTRIBUTION (15 %): who posted the suspect content? (party_a, party_b, unknown)
+4. ATTRIBUTION (15 %): who posted the suspect content? (party_a, party_b, unknown). You MUST extract an explicit attribution_quote from the sources that proves this identity. If there is no explicit proof of identity, responsible_party MUST be unknown.
 5. INTENT (10 %): intentional / accidental / coerced / unknown?
 
 Count how many of the three sources you were able to fetch AND whose content corroborates the leak (`sources_confirming`). PRIMARY corroborates when it contains the leak. WAYBACK / GOOGLE corroborate only when they show the information was ALREADY PUBLIC (i.e. they support `prior_disclosure_found=true`); otherwise they neither confirm nor deny.
@@ -539,6 +541,7 @@ Count how many of the three sources you were able to fetch AND whose content cor
   "intent": "intentional" | "accidental" | "coerced" | "unknown",
   "reasoning": "<3-5 sentences>",
   "evidence_quote": "<snippet>",
+  "attribution_quote": "<snippet>",
   "matched_keywords_count": <int>,
   "sources_evaluated": <1-3>,
   "sources_confirming": <0-3>,
@@ -549,7 +552,7 @@ Count how many of the three sources you were able to fetch AND whose content cor
             try:
                 parsed = json.loads(res) if isinstance(res, str) else res
                 if not isinstance(parsed, dict):
-                    raise ValueError("not a dict")
+                    raise gl.vm.UserError("not a dict")
                 # Fill in cross-reference telemetry that older mocks may skip
                 # so downstream logic sees a stable schema.
                 parsed.setdefault("sources_evaluated", 3)
@@ -567,6 +570,7 @@ Count how many of the three sources you were able to fetch AND whose content cor
                     "intent": "unknown",
                     "reasoning": "LLM failed to output valid JSON",
                     "evidence_quote": "",
+                    "attribution_quote": "",
                     "matched_keywords_count": 0,
                     "sources_evaluated": 3,
                     "sources_confirming": 0,
@@ -587,6 +591,7 @@ Count how many of the three sources you were able to fetch AND whose content cor
                 "(1) verdict EXACT MATCH required: violation_confirmed != no_violation "
                 "    != inconclusive. Any disagreement -> consensus FAILS. "
                 "(2) responsible_party EXACT MATCH: party_a != party_b != unknown != both. "
+                "(2.1) attribution_quote MUST be present and match in substance if responsible_party is not unknown. "
                 "(3) prior_disclosure_found BOOLEAN must match exactly. "
                 "(4) confidence — within +-15 points. "
                 "(5) match_score — within +-15 points. "
@@ -599,7 +604,7 @@ Count how many of the three sources you were able to fetch AND whose content cor
                 "    inconclusive — NEVER blanket-accept leader's violation_confirmed "
                 "    verdict. Corroborating sources are advisory only. "
                 "(9) sources_evaluated within +-1; sources_confirming within +-1. "
-                "Minor wording differences in 'reasoning', 'evidence_quote', and "
+                "Minor wording differences in 'reasoning', 'evidence_quote', 'attribution_quote', and "
                 "'cross_reference_notes' are acceptable — the core verdict and "
                 "slashing-critical scores must align."
             )
@@ -686,17 +691,21 @@ Count how many of the three sources you were able to fetch AND whose content cor
                     })
                 else:
                     self.withdrawable[sender] = u256(int(self.withdrawable.get(sender, u256(0))) + int(val))
+                    self.withdrawn_from_nda[nda_id] = u256(int(self.withdrawn_from_nda.get(nda_id, u256(0))) + int(val))
             else:
                 # An unattributable verdict (or a reporter identified as the
                 # violator) cannot safely slash collateral.
                 self.withdrawable[sender] = u256(int(self.withdrawable.get(sender, u256(0))) + int(val))
+                self.withdrawn_from_nda[nda_id] = u256(int(self.withdrawn_from_nda.get(nda_id, u256(0))) + int(val))
             
         elif verdict == "no_violation":
             other_party = nda.party_b if sender == nda.party_a else nda.party_a
             self.withdrawable[other_party] = u256(int(self.withdrawable.get(other_party, u256(0))) + int(val))
+            self.withdrawn_from_nda[nda_id] = u256(int(self.withdrawn_from_nda.get(nda_id, u256(0))) + int(val))
             
         else: # inconclusive
             self.withdrawable[sender] = u256(int(self.withdrawable.get(sender, u256(0))) + int(val))
+            self.withdrawn_from_nda[nda_id] = u256(int(self.withdrawn_from_nda.get(nda_id, u256(0))) + int(val))
             
         self.ndas[idx] = nda
 
@@ -752,6 +761,7 @@ Count how many of the three sources you were able to fetch AND whose content cor
         self.withdrawable[other_party] = u256(
             int(self.withdrawable.get(other_party, u256(0))) + compensation
         )
+        self.withdrawn_from_nda[nda_id] = u256(int(self.withdrawn_from_nda.get(nda_id, u256(0))) + reward + compensation)
         self.treasury = u256(int(self.treasury) + treasury_fee)
         self._emit(EVENT_VERDICT_FINALIZED, nda_id, sender, {
             "reporter": self._addr_key(reporter_addr),
@@ -827,6 +837,14 @@ Count how many of the three sources you were able to fetch AND whose content cor
         canary = hashlib.sha256(f"canary-appeal-{nda_id}".encode("utf-8")).hexdigest()[:16]
         
         def leader_fn():
+            fetched_content = ""
+            for word in counter_evidence.split():
+                if word.startswith("http://") or word.startswith("https://"):
+                    try:
+                        fetched_content += f"\n[Fetched from {word}]\n{gl.nondet.web.render(word, mode='text')[:3000]}\n"
+                    except Exception as e:
+                        fetched_content += f"\n[Failed to fetch {word}: {str(e)[:200]}]\n"
+
             prompt = f"""
 You are the AI Appellate Jury for an NDA enforcement protocol.
 Earlier, an AI Jury found a violation. The violator is appealing with counter-evidence.
@@ -837,6 +855,7 @@ Earlier, an AI Jury found a violation. The violator is appealing with counter-ev
 === COUNTER EVIDENCE ===
 <<<{canary}>>>
 {counter_evidence}
+{fetched_content}
 <<<END_{canary}>>>
 
 === SECURITY INSTRUCTIONS ===
@@ -946,7 +965,19 @@ Return JSON:
                 "appeal_fee_refunded": str(val),
             })
 
-        else: # upheld or inconclusive
+        elif verdict == "inconclusive":
+            self.withdrawable[sender] = u256(int(self.withdrawable.get(sender, u256(0))) + int(val))
+            self.withdrawn_from_nda[nda_id] = u256(int(self.withdrawn_from_nda.get(nda_id, u256(0))) + int(val))
+            nda.status = "leaked"
+            self.appeal_submitted[nda_id] = False
+            nda.appeal_deadline = u256(max(int(nda.appeal_deadline), int(self._now()) + 24 * 60 * 60))
+            self._emit("appeal_inconclusive", nda_id, sender, {
+                "appeal_fee_refunded": str(val),
+                "verdict": "inconclusive",
+                "new_appeal_deadline": str(nda.appeal_deadline)
+            })
+
+        else: # upheld
             self.treasury = u256(int(self.treasury) + int(val))
             nda.status = "leaked"
             # Allow reporter to claim immediately since appeal is finalized against violator
@@ -979,6 +1010,7 @@ Return JSON:
         refund_b = int(nda.stake_b)
         self.withdrawable[nda.party_a] = u256(int(self.withdrawable.get(nda.party_a, u256(0))) + refund_a)
         self.withdrawable[nda.party_b] = u256(int(self.withdrawable.get(nda.party_b, u256(0))) + refund_b)
+        self.withdrawn_from_nda[nda_id] = u256(int(self.withdrawn_from_nda.get(nda_id, u256(0))) + refund_a + refund_b)
 
         nda.stake_a = u256(0)
         nda.stake_b = u256(0)
@@ -1177,10 +1209,7 @@ Return JSON:
             + int(self.escrowed_compensation.get(nda_id, u256(0)))
             + int(self.escrowed_treasury_fee.get(nda_id, u256(0)))
         )
-        party_withdrawables = (
-            int(self.withdrawable.get(nda.party_a, u256(0)))
-            + int(self.withdrawable.get(nda.party_b, u256(0)))
-        )
+        party_withdrawables = int(self.withdrawn_from_nda.get(nda_id, u256(0)))
         return json.dumps({
             "active_stakes": str(active_stakes),
             "escrows": str(escrows),

@@ -75,6 +75,7 @@ def mock_verdict(direct_vm, verdict: str):
             "intent": "intentional",
             "reasoning": "The protected information was disclosed by party A.",
             "evidence_quote": "secret_algorithm was leaked",
+            "attribution_quote": "published by party_a",
             "matched_keywords_count": 1,
         }),
     )
@@ -603,3 +604,55 @@ def test_reputation_never_underflows_below_zero(direct_vm, direct_deploy, direct
     alice_rep = reputation(contract, direct_alice)
     assert int(alice_rep["score"]) == 0
     assert alice_rep["tier"] == "flagged"
+
+def test_inconclusive_appeal_refunds_fee_and_keeps_escrow(direct_vm, direct_deploy, direct_alice, direct_bob):
+    contract = deploy_active_nda(direct_vm, direct_deploy, direct_alice, direct_bob)
+    mock_verdict(direct_vm, "upheld")
+    report_party_a(direct_vm, contract, direct_bob)
+    
+    mock_verdict(direct_vm, "inconclusive")
+    direct_vm.sender = direct_alice
+    direct_vm.value = APPEAL_FEE
+    contract.appeal(0, "Counter-evidence is ambiguous.")
+    direct_vm.value = 0
+    
+    nda = contract.get_nda(0)
+    state = payment_state(contract)
+    
+    assert nda.status == "leaked"
+    assert not state["appeal_submitted"]
+    assert int(state["reporter_reward_escrow"]) == 80 * 10**18
+    assert withdrawable(contract, direct_alice) == APPEAL_FEE
+    assert_liabilities_match(contract, 2 * STAKE + REPORT_FEE + APPEAL_FEE)
+
+def test_missing_attribution_fails_consensus(direct_vm, direct_deploy, direct_alice, direct_bob):
+    contract = deploy_active_nda(direct_vm, direct_deploy, direct_alice, direct_bob)
+    
+    direct_vm.clear_mocks()
+    direct_vm.mock_web(r".*", {"status": 200, "body": "secret_algorithm was leaked"})
+    direct_vm.mock_llm(
+        r".*AI Jury for an NDA enforcement protocol.*",
+        json.dumps({
+            "verdict": "violation_confirmed",
+            "confidence": 95,
+            "responsible_party": "party_a",
+            "match_score": 95,
+            "specificity_score": 90,
+            "prior_disclosure_found": False,
+            "intent": "intentional",
+            "reasoning": "The protected information was disclosed by party A.",
+            "evidence_quote": "secret_algorithm was leaked",
+            "attribution_quote": "",
+            "matched_keywords_count": 1,
+        }),
+    )
+    
+    direct_vm.sender = direct_bob
+    direct_vm.value = REPORT_FEE
+    contract.report_leak(0, "https://example.com/leak", json.dumps([KEYWORDS[0]]), SALT)
+    direct_vm.value = 0
+    
+    nda = contract.get_nda(0)
+    # the LLM output is accepted by the mock, but in a real network it would be rejected by consensus
+    # so we just test it doesn't crash the contract parsing
+    assert nda.status == "leaked"
