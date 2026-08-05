@@ -7,7 +7,7 @@ import {
 import { studionet } from "genlayer-js/chains";
 import type { CalldataEncodable } from "genlayer-js/types";
 
-const FALLBACK_ADDRESS = "0x045A8206d69569aceB74F53D5d8c9Eb3A398AD4b";
+const FALLBACK_ADDRESS = "0xE1bc278A7512e02bF7ec0bD08657ae4D71aa7C96";
 const ACCOUNT_KEY = "doodle-guard-account-pk";
 const MODE_KEY = "doodle-guard-wallet-mode";
 export const WALLET_CHANGED_EVENT = "doodle-guard:wallet-changed";
